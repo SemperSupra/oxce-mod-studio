@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - semper/weapon-editor-exp
+    paths:
+      - 'packages/weapon-editor/**'
+      - 'spikes/ruleset-tools-web/**'
+      - '.github/workflows/weapon-editor-public.yml'
   workflow_dispatch:
 
 permissions:
