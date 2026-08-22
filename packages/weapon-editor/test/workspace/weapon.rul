@@ -1,0 +1,8 @@
+# web-host fixture
+items:
+  - type: STR_WEB_TEST_WEAPON
+    battleType: 1
+    accuracySnap: 65 # preserve me
+    accuracyAimed: 90
+    weight: 4
+    futureField: 123 # must survive
