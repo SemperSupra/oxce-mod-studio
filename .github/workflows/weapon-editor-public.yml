@@ -6,10 +6,12 @@ on:
       - semper/weapon-editor-exp
     paths:
       - 'packages/weapon-editor/**'
+      - 'spikes/ruleset-tools-web/**'
       - '.github/workflows/weapon-editor-public.yml'
   pull_request:
     paths:
       - 'packages/weapon-editor/**'
+      - 'spikes/ruleset-tools-web/**'
       - '.github/workflows/weapon-editor-public.yml'
   workflow_dispatch:
 
@@ -19,11 +21,13 @@ permissions:
 env:
   STUDIO_VERSION: '0.0.1'
   EXPERIMENTAL_TAG: studio-exp-current
+  RULESET_TOOLS_SHA: '089e560e60819ec0b35d834f0b6dc65b5ea76d06'
+  VSCODE_YAML_SHA: '85e1754a4e71b54f0f49ddddcbdecb50b9abbe6b'
 
 jobs:
   build-test-package:
     runs-on: ubuntu-22.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
       CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
@@ -31,12 +35,34 @@ jobs:
       - name: Checkout public candidate
         uses: actions/checkout@v4
 
+      - name: Checkout pinned Ruleset Tools upstream
+        uses: actions/checkout@v4
+        with:
+          repository: OpenXcom/vscode-ruleset
+          ref: 089e560e60819ec0b35d834f0b6dc65b5ea76d06
+          path: .upstream/vscode-ruleset
+
+      - name: Checkout pinned Red Hat YAML web dependency
+        uses: actions/checkout@v4
+        with:
+          repository: redhat-developer/vscode-yaml
+          ref: 85e1754a4e71b54f0f49ddddcbdecb50b9abbe6b
+          path: .upstream/vscode-yaml
+
       - name: Set up Node 22
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      - name: Install exact dependencies
+      - name: Verify pinned provider SHAs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C .upstream/vscode-ruleset rev-parse HEAD)" = "$RULESET_TOOLS_SHA"
+          test "$(git -C .upstream/vscode-yaml rev-parse HEAD)" = "$VSCODE_YAML_SHA"
+          node -e "const p=require('./.upstream/vscode-yaml/package.json'); if(p.version!=='1.24.0'||!p.browser) process.exit(1); console.log('redhat.vscode-yaml', p.version, p.browser)"
+
+      - name: Install exact Studio dependencies
         working-directory: packages/weapon-editor
         run: npm install --no-audit --no-fund
 
@@ -59,6 +85,57 @@ jobs:
       - name: Exercise extension in real VS Code Web host
         working-directory: packages/weapon-editor
         run: npm run test:web
+
+      - name: Build pinned Ruleset Tools schema/provider
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --prefix .upstream/vscode-ruleset
+          node .upstream/vscode-ruleset/build/index.js
+          node spikes/ruleset-tools-web/localize-schema-refs.mjs .upstream/vscode-ruleset/schemas/oxce
+          node spikes/ruleset-tools-web/prepare-upstream.mjs .upstream/vscode-ruleset
+          "$GITHUB_WORKSPACE/packages/weapon-editor/node_modules/.bin/esbuild" \
+            .upstream/vscode-ruleset/src/extension.ts \
+            --bundle \
+            --platform=browser \
+            --format=cjs \
+            --external:vscode \
+            --outfile=.upstream/vscode-ruleset/dist/web/extension.js
+
+      - name: Build pinned Red Hat YAML web extension
+        working-directory: .upstream/vscode-yaml
+        run: |
+          npm ci
+          npm run compile
+
+      - name: Build real-provider integration test
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$GITHUB_WORKSPACE/packages/weapon-editor/node_modules/.bin/esbuild" \
+            packages/weapon-editor/test/provider-web-test.mjs \
+            --bundle \
+            --platform=browser \
+            --format=cjs \
+            --external:vscode \
+            --outfile=packages/weapon-editor/dist/provider-web-test.js
+
+      - name: Exercise Studio with pinned real browser providers
+        working-directory: packages/weapon-editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --no-install vscode-test-web \
+            --quality=stable \
+            --browserType=chromium \
+            --headless \
+            --verbose \
+            --printServerLog \
+            --extensionDevelopmentPath=. \
+            --extensionTestsPath=dist/provider-web-test.js \
+            --extensionPath="$GITHUB_WORKSPACE/.upstream/vscode-yaml" \
+            --extensionPath="$GITHUB_WORKSPACE/.upstream/vscode-ruleset" \
+            "$GITHUB_WORKSPACE/packages/weapon-editor/test/workspace"
 
       - name: Package experimental VSIX
         working-directory: packages/weapon-editor
@@ -90,6 +167,10 @@ jobs:
                   'branch': 'semper/weapon-editor-exp',
                   'commit': candidate,
               },
+              'providers': {
+                  'ruleset_tools': os.environ['RULESET_TOOLS_SHA'],
+                  'redhat_yaml': os.environ['VSCODE_YAML_SHA'],
+              },
               'artifact': {
                   'kind': 'vsix',
                   'filename': vsix.name,
@@ -98,6 +179,7 @@ jobs:
               'evidence': {
                   'source_fidelity': 'passed-in-workflow',
                   'vscode_web_host': 'passed-in-workflow',
+                  'real_provider_integration': 'passed-in-workflow',
                   'vsix_packaging': 'passed-in-workflow',
               },
           }
@@ -145,7 +227,7 @@ jobs:
         run: |
           set -euo pipefail
           TITLE="UNOFFICIAL — OXCE Mod Studio Experimental Weapon Editor"
-          NOTES=$'Experimental development build of OXCE Mod Studio.\n\nThis is not a stable release. The VSIX has passed source-fidelity tests, browser bundling, a real headless VS Code Web/Chromium activation-and-edit test, and packaging in this public workflow.\n\nCanonical source remains authoritative; current inspector evidence is SOURCE/TEXT only.'
+          NOTES=$'Experimental development build of OXCE Mod Studio.\n\nThis is not a stable release. The VSIX has passed source-fidelity tests, browser bundling, a real headless VS Code Web/Chromium activation-and-edit test, pinned Ruleset Tools + Red Hat YAML provider integration, and packaging in this public workflow.\n\nCanonical source remains authoritative. Browser diagnostics are labeled separately from OXCE engine-authoritative evidence.'
           if gh release view "$EXPERIMENTAL_TAG" >/dev/null 2>&1; then
             while IFS= read -r asset; do
               [ -z "$asset" ] || gh release delete-asset "$EXPERIMENTAL_TAG" "$asset" -y
