@@ -1,0 +1,157 @@
+name: OXCE Mod Studio public weapon candidate
+
+on:
+  push:
+    branches:
+      - semper/weapon-editor-exp
+    paths:
+      - 'packages/weapon-editor/**'
+      - '.github/workflows/weapon-editor-public.yml'
+  pull_request:
+    paths:
+      - 'packages/weapon-editor/**'
+      - '.github/workflows/weapon-editor-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  STUDIO_VERSION: '0.0.1'
+  EXPERIMENTAL_TAG: studio-exp-current
+
+jobs:
+  build-test-package:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+    steps:
+      - name: Checkout public candidate
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install exact dependencies
+        working-directory: packages/weapon-editor
+        run: npm install --no-audit --no-fund
+
+      - name: Run source-fidelity contract
+        working-directory: packages/weapon-editor
+        run: npm test
+
+      - name: Build browser extension
+        working-directory: packages/weapon-editor
+        run: npm run build:web
+
+      - name: Build VS Code Web test bundle
+        working-directory: packages/weapon-editor
+        run: npm run build:web-test
+
+      - name: Install Chromium for VS Code Web
+        working-directory: packages/weapon-editor
+        run: npx --no-install playwright install --with-deps chromium
+
+      - name: Exercise extension in real VS Code Web host
+        working-directory: packages/weapon-editor
+        run: npm run test:web
+
+      - name: Package experimental VSIX
+        working-directory: packages/weapon-editor
+        run: npm run package:vsix
+
+      - name: Stage provenance-named public artifact
+        working-directory: packages/weapon-editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHORT_SHA="${CANDIDATE_SHA:0:8}"
+          mkdir -p dist/public
+          PUBLIC_NAME="oxce-mod-studio-experimental-${STUDIO_VERSION}-g${SHORT_SHA}.vsix"
+          cp "dist/oxce-mod-studio-${STUDIO_VERSION}.vsix" "dist/public/${PUBLIC_NAME}"
+          sha256sum "dist/public/${PUBLIC_NAME}" | tee dist/public/SHA256SUMS.txt
+          python - <<'PY'
+          import hashlib, json, os, pathlib
+          root = pathlib.Path('dist/public')
+          vsix = next(root.glob('*.vsix'))
+          digest = hashlib.sha256(vsix.read_bytes()).hexdigest()
+          candidate = os.environ['CANDIDATE_SHA']
+          manifest = {
+              'schema': 1,
+              'channel': os.environ['EXPERIMENTAL_TAG'],
+              'status': 'experimental',
+              'official_studio': False,
+              'source': {
+                  'repository': 'SemperSupra/oxce-mod-studio',
+                  'branch': 'semper/weapon-editor-exp',
+                  'commit': candidate,
+              },
+              'artifact': {
+                  'kind': 'vsix',
+                  'filename': vsix.name,
+                  'sha256': digest,
+              },
+              'evidence': {
+                  'source_fidelity': 'passed-in-workflow',
+                  'vscode_web_host': 'passed-in-workflow',
+                  'vsix_packaging': 'passed-in-workflow',
+              },
+          }
+          (root / 'experimental-build-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+          PY
+
+      - name: Upload public candidate artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-studio-weapon-candidate
+          path: packages/weapon-editor/dist/public/*
+          if-no-files-found: error
+
+  publish-rolling-experimental:
+    needs: build-test-package
+    if: github.event_name == 'push' && github.ref == 'refs/heads/semper/weapon-editor-exp'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CANDIDATE_SHA: ${{ github.sha }}
+
+    steps:
+      - name: Checkout public candidate
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download validated package
+        uses: actions/download-artifact@v4
+        with:
+          name: public-studio-weapon-candidate
+          path: dist
+
+      - name: Move rolling experimental tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          git tag -f "$EXPERIMENTAL_TAG" "$CANDIDATE_SHA"
+          git push origin "refs/tags/$EXPERIMENTAL_TAG" --force
+
+      - name: Publish rolling experimental prerelease
+        shell: bash
+        run: |
+          set -euo pipefail
+          TITLE="UNOFFICIAL — OXCE Mod Studio Experimental Weapon Editor"
+          NOTES=$'Experimental development build of OXCE Mod Studio.\n\nThis is not a stable release. The VSIX has passed source-fidelity tests, browser bundling, a real headless VS Code Web/Chromium activation-and-edit test, and packaging in this public workflow.\n\nCanonical source remains authoritative; current inspector evidence is SOURCE/TEXT only.'
+          if gh release view "$EXPERIMENTAL_TAG" >/dev/null 2>&1; then
+            while IFS= read -r asset; do
+              [ -z "$asset" ] || gh release delete-asset "$EXPERIMENTAL_TAG" "$asset" -y
+            done < <(gh release view "$EXPERIMENTAL_TAG" --json assets --jq '.assets[].name')
+            gh release edit "$EXPERIMENTAL_TAG" --prerelease --title "$TITLE" --notes "$NOTES"
+          else
+            gh release create "$EXPERIMENTAL_TAG" --prerelease --title "$TITLE" --notes "$NOTES"
+          fi
+          gh release upload "$EXPERIMENTAL_TAG" dist/* --clobber
