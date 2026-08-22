@@ -1,5 +1,9 @@
 import * as vscode from 'vscode';
+import { collectAuthoritativeRuleEvidence, parseCompileObserverJsonl } from './engine-evidence.mjs';
 import { editWeaponScalar, readWeaponDocument } from './source-editor.mjs';
+
+let attachedEngineEvidenceText = null;
+let attachedEngineEvidenceLabel = null;
 
 function escapeHtml(value) {
   return String(value)
@@ -57,7 +61,27 @@ function diagnosticEvidenceOrigin(diagnostic) {
   return 'EDITOR-DIAGNOSTIC';
 }
 
-function collectBrowserEvidence(document) {
+function notRunEngineEvidence() {
+  return {
+    evidenceOrigin: 'ENGINE-AUTHORITATIVE',
+    state: 'not-run',
+    message: 'No OXCE engine-authoritative evidence has been attached to this browser session yet.'
+  };
+}
+
+function collectWeaponEngineEvidence(weapon) {
+  if (!weapon || !attachedEngineEvidenceText) return notRunEngineEvidence();
+  const evidence = collectAuthoritativeRuleEvidence(attachedEngineEvidenceText, {
+    category: 'items',
+    identity: weapon.id
+  });
+  return {
+    ...evidence,
+    attachedEvidence: attachedEngineEvidenceLabel
+  };
+}
+
+function collectBrowserEvidence(document, weapon = null) {
   const rulesetTools = vscode.extensions.getExtension('openxcom.ruleset-tools');
   const yaml = vscode.extensions.getExtension('redhat.vscode-yaml');
   const diagnostics = vscode.languages.getDiagnostics(document.uri).map(diagnostic => ({
@@ -92,12 +116,40 @@ function collectBrowserEvidence(document) {
       }
     },
     diagnostics,
-    engine: {
-      evidenceOrigin: 'ENGINE-AUTHORITATIVE',
-      state: 'not-run',
-      message: 'No OXCE engine-authoritative evidence has been attached to this browser view yet.'
-    }
+    engine: collectWeaponEngineEvidence(weapon)
   };
+}
+
+function attachEngineEvidenceText(text, label = 'attached JSONL evidence') {
+  const events = parseCompileObserverJsonl(text);
+  attachedEngineEvidenceText = text;
+  attachedEngineEvidenceLabel = label;
+  return {
+    evidenceOrigin: 'ENGINE-AUTHORITATIVE',
+    state: 'attached',
+    label,
+    eventCount: events.length
+  };
+}
+
+async function attachEngineEvidenceFile() {
+  const picked = await vscode.window.showOpenDialog({
+    canSelectMany: false,
+    canSelectFiles: true,
+    canSelectFolders: false,
+    title: 'Attach OXCE compile observer evidence',
+    filters: {
+      'OXCE observer JSON Lines': ['jsonl', 'json']
+    }
+  });
+  if (!picked?.length) return null;
+
+  const uri = picked[0];
+  const bytes = await vscode.workspace.fs.readFile(uri);
+  const text = new TextDecoder('utf-8').decode(bytes);
+  const result = attachEngineEvidenceText(text, uri.toString());
+  void vscode.window.showInformationMessage(`Attached OXCE engine evidence (${result.eventCount} events).`);
+  return result;
 }
 
 function renderField(field, value) {
@@ -109,6 +161,28 @@ function renderField(field, value) {
     return `<label class="row"><span>${label}</span><input data-field="${label}" data-kind="boolean" type="checkbox" ${value ? 'checked' : ''} /></label>`;
   }
   return `<label class="row"><span>${label}</span><input data-field="${label}" data-kind="string" type="text" value="${escapeHtml(value)}" /></label>`;
+}
+
+function renderEngineEvidence(engine) {
+  if (engine.state === 'not-run') {
+    return '<p><strong>ENGINE-AUTHORITATIVE:</strong> not run / no evidence attached.</p>';
+  }
+  if (engine.state === 'not-found') {
+    return `<p><strong>ENGINE-AUTHORITATIVE:</strong> attached evidence contains no bounded item snapshot for <code>${escapeHtml(engine.identity)}</code>.</p>`;
+  }
+
+  const created = engine.createdBy?.source
+    ? `<code>${escapeHtml(engine.createdBy.source)}</code>`
+    : escapeHtml(engine.createdBy?.outcome ?? 'not reported');
+  const effective = engine.effectiveRule?.source
+    ? `<code>${escapeHtml(engine.effectiveRule.source)}</code>`
+    : escapeHtml(engine.effectiveRule?.outcome ?? 'not reported');
+  return `
+    <p><strong>ENGINE-AUTHORITATIVE:</strong> available · OXCE observer schema ${escapeHtml(engine.schema)}</p>
+    <ul>
+      <li>created by: ${created}</li>
+      <li>effective rule: ${effective}</li>
+    </ul>`;
 }
 
 function renderDiagnostics(evidence) {
@@ -128,13 +202,13 @@ function renderDiagnostics(evidence) {
 
   return `
     <section class="evidence-block">
-      <h2>Browser evidence</h2>
+      <h2>Evidence</h2>
       <p><strong>SOURCE/TEXT:</strong> authoritative source projection available.</p>
       <p><strong>Providers:</strong></p>
       <ul>${providerRows}</ul>
       <p><strong>Current document diagnostics:</strong></p>
       <ul>${diagnosticRows}</ul>
-      <p><strong>ENGINE-AUTHORITATIVE:</strong> not run in this browser view.</p>
+      ${renderEngineEvidence(evidence.engine)}
     </section>`;
 }
 
@@ -225,7 +299,7 @@ async function openWeaponEditor() {
     vscode.ViewColumn.Beside,
     { enableScripts: true, retainContextWhenHidden: false }
   );
-  const evidence = collectBrowserEvidence(editor.document);
+  const evidence = collectBrowserEvidence(editor.document, weapon);
   panel.webview.html = renderWebview(panel.webview, weapon, evidence);
 
   panel.webview.onDidReceiveMessage(async message => {
@@ -233,7 +307,7 @@ async function openWeaponEditor() {
     try {
       await applyScalarEdit(editor.document, weapon.id, message.field, message.value);
       const refreshed = readWeaponDocument(editor.document.getText()).weapons.find(item => item.id === weapon.id);
-      if (refreshed) panel.webview.html = renderWebview(panel.webview, refreshed, collectBrowserEvidence(editor.document));
+      if (refreshed) panel.webview.html = renderWebview(panel.webview, refreshed, collectBrowserEvidence(editor.document, refreshed));
       await panel.webview.postMessage({ type: 'editResult', message: 'Applied to authoritative YAML source.' });
     } catch (error) {
       await panel.webview.postMessage({ type: 'editResult', message: String(error.message ?? error) });
@@ -252,6 +326,7 @@ async function openWeaponEditor() {
 export function activate(context) {
   context.subscriptions.push(
     vscode.commands.registerCommand('oxceModStudio.openWeaponEditor', openWeaponEditor),
+    vscode.commands.registerCommand('oxceModStudio.attachEngineEvidence', attachEngineEvidenceFile),
     vscode.commands.registerCommand('oxceModStudio._applyWeaponScalar', async (uri, weaponId, field, value) => {
       const document = await vscode.workspace.openTextDocument(uri);
       return applyScalarEdit(document, weaponId, field, value);
@@ -259,7 +334,13 @@ export function activate(context) {
     vscode.commands.registerCommand('oxceModStudio._inspectBrowserEvidence', async uri => {
       const document = await vscode.workspace.openTextDocument(uri);
       return collectBrowserEvidence(document);
-    })
+    }),
+    vscode.commands.registerCommand('oxceModStudio._inspectEngineEvidence', (jsonl, category, identity) =>
+      collectAuthoritativeRuleEvidence(jsonl, { category, identity })
+    ),
+    vscode.commands.registerCommand('oxceModStudio._attachEngineEvidenceText', (jsonl, label) =>
+      attachEngineEvidenceText(jsonl, label)
+    )
   );
 }
 
