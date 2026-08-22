@@ -39,7 +39,7 @@
     "esbuild": "0.25.9"
   },
   "scripts": {
-    "test": "node ./test/source-editor.test.mjs",
+    "test": "node ./test/source-editor.test.mjs && node ./test/engine-evidence.test.mjs",
     "build:web": "esbuild ./src/extension.mjs --bundle --platform=browser --format=cjs --external:vscode --outfile=./dist/extension.js",
     "build:web-test": "esbuild ./test/web-test.mjs --bundle --platform=browser --format=cjs --external:vscode --outfile=./dist/web-test.js",
     "test:web": "npm run build:web && npm run build:web-test && vscode-test-web --quality=stable --browserType=chromium --headless --verbose --printServerLog --extensionDevelopmentPath=. --extensionTestsPath=dist/web-test.js ./test/workspace",
