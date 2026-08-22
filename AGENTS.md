@@ -2,6 +2,8 @@
 
 This repository is the sanitized public product/build/release plane for OXCE Mod Studio.
 
+It follows the project’s **generator–validator** operating model: public implementation/build mechanics may be inspectable and reproducible, while high-value validator-side domain, conformance, adversarial, evaluator, and failure knowledge remains private by default unless deliberately released or required by license/public use.
+
 ## Required reading
 
 Before changing build, release, provenance, or public/private promotion behavior, read:
