@@ -1,0 +1,93 @@
+name: Validate publication policy
+
+on:
+  push:
+    branches:
+      - semper/weapon-editor-exp
+    paths:
+      - 'README.md'
+      - 'AGENTS.md'
+      - 'release-policy.json'
+      - '.github/workflows/publication-policy.yml'
+      - '.github/workflows/weapon-editor-public.yml'
+      - '.github/workflows/verify-experimental-release.yml'
+  pull_request:
+    paths:
+      - 'README.md'
+      - 'AGENTS.md'
+      - 'release-policy.json'
+      - '.github/workflows/publication-policy.yml'
+      - '.github/workflows/weapon-editor-public.yml'
+      - '.github/workflows/verify-experimental-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-policy:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout public candidate
+        uses: actions/checkout@v4
+
+      - name: Validate machine-readable generator-validator contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import json
+          from pathlib import Path
+
+          policy = json.loads(Path('release-policy.json').read_text(encoding='utf-8'))
+
+          required_evidence = {
+              'SOURCE/TEXT',
+              'SCHEMA',
+              'STATIC-SEMANTIC',
+              'ENGINE-AUTHORITATIVE',
+              'RUNTIME/BEHAVIORAL',
+          }
+          observed = set(policy.get('evidence_classes', []))
+          if observed != required_evidence:
+              raise SystemExit(f'evidence classes changed unexpectedly: {sorted(observed)!r}')
+
+          source = policy.get('source', {})
+          release = policy.get('release', {})
+          evidence = policy.get('evidence_rules', {})
+
+          checks = {
+              'public commit source required': source.get('must_originate_from_public_commit') is True,
+              'private repo archives forbidden': source.get('private_repository_archives_allowed') is False,
+              'source snapshot required': source.get('release_source_snapshot_required') is True,
+              'source/binary commit match required': source.get('source_binary_commit_match_required') is True,
+              'manifest required': release.get('manifest_required') is True,
+              'SHA-256 required': release.get('sha256_required') is True,
+              'public verifier required': release.get('independent_public_verification_required') is True,
+              'rolling tag not immutable package version': release.get('mutable_channel_is_immutable_package_version') is False,
+              'no evidence-layer promotion': evidence.get('lower_layer_may_claim_higher_layer') is False,
+              'OXCE engine authority': evidence.get('engine_authority') == 'OXCE',
+          }
+          failed = [name for name, ok in checks.items() if not ok]
+          if failed:
+              raise SystemExit('publication policy invariant failure: ' + ', '.join(failed))
+
+          if not policy.get('private_by_default_value_categories'):
+              raise SystemExit('private-by-default value category list is empty')
+
+          for required_file in ('README.md', 'AGENTS.md'):
+              text = Path(required_file).read_text(encoding='utf-8')
+              if 'generator' not in text.lower() or 'validator' not in text.lower():
+                  raise SystemExit(f'{required_file} no longer documents generator-validator boundary')
+
+          print('publication policy contract validated')
+          PY
+
+      - name: Verify public publisher source-origin contract is still present
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'git archive' .github/workflows/weapon-editor-public.yml
+          grep -Fq 'exact-public-candidate-commit' .github/workflows/weapon-editor-public.yml
+          grep -Fq 'private_validator_assets_included' .github/workflows/weapon-editor-public.yml
+          grep -Fq 'Verify public release without credentials' .github/workflows/verify-experimental-release.yml
