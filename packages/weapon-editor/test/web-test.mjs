@@ -42,9 +42,10 @@ export async function run() {
   requireCondition(beforeEngine?.engine?.evidenceOrigin === 'ENGINE-AUTHORITATIVE', 'engine evidence class must be explicit before attachment');
   requireCondition(beforeEngine?.engine?.state === 'not-run', 'engine evidence must begin explicitly not-run');
 
+  const correlationId = 'web-test-correlation-1';
   const engineJsonl = [
-    JSON.stringify({schema: 1, kind: 'snapshot', phase: 'validate-rulesets', category: 'items', operation: 'created-by', identity: 'STR_WEB_TEST_WEAPON', source: 'Test Core', outcome: 'present'}),
-    JSON.stringify({schema: 1, kind: 'snapshot', phase: 'validate-rulesets', category: 'items', operation: 'effective-rule', identity: 'STR_WEB_TEST_WEAPON', source: 'Test Balance Patch', outcome: 'present'})
+    JSON.stringify({schema: 1, timestamp: '2026-08-22T14:15:30.123Z', correlation_id: correlationId, sequence: 1, kind: 'snapshot', phase: 'validate-rulesets', category: 'items', operation: 'created-by', identity: 'STR_WEB_TEST_WEAPON', source: 'Test Core', outcome: 'present'}),
+    JSON.stringify({schema: 1, timestamp: '2026-08-22T14:15:30.124Z', correlation_id: correlationId, sequence: 2, kind: 'snapshot', phase: 'validate-rulesets', category: 'items', operation: 'effective-rule', identity: 'STR_WEB_TEST_WEAPON', source: 'Test Balance Patch', outcome: 'present'})
   ].join('\n');
 
   const directEvidence = await vscode.commands.executeCommand(
@@ -54,7 +55,10 @@ export async function run() {
     'STR_WEB_TEST_WEAPON'
   );
   requireCondition(directEvidence?.state === 'available', 'bounded engine evidence parser did not return available evidence');
+  requireCondition(directEvidence?.correlationId === correlationId, 'engine correlation ID was not preserved');
   requireCondition(directEvidence?.createdBy?.source === 'Test Core', 'created-by provenance was not preserved');
+  requireCondition(directEvidence?.createdBy?.sequence === 1, 'created-by sequence was not preserved');
+  requireCondition(directEvidence?.createdBy?.timestamp === '2026-08-22T14:15:30.123Z', 'created-by timestamp was not preserved');
   requireCondition(directEvidence?.effectiveRule?.source === 'Test Balance Patch', 'effective-rule provenance was not preserved');
 
   const attached = await vscode.commands.executeCommand(
@@ -70,6 +74,7 @@ export async function run() {
   requireCondition(opened?.evidenceOrigin === 'SOURCE/TEXT', `weapon inspector must label source evidence, got ${opened?.evidenceOrigin}`);
   requireCondition(opened?.browserEvidence?.source?.evidenceOrigin === 'SOURCE/TEXT', 'browser evidence must identify source/text evidence');
   requireCondition(opened?.browserEvidence?.engine?.state === 'available', 'weapon inspector did not transition to attached authoritative evidence');
+  requireCondition(opened?.browserEvidence?.engine?.correlationId === correlationId, 'weapon inspector did not retain engine correlation ID');
   requireCondition(opened?.browserEvidence?.engine?.createdBy?.source === 'Test Core', 'weapon inspector did not surface created-by evidence');
   requireCondition(opened?.browserEvidence?.engine?.effectiveRule?.source === 'Test Balance Patch', 'weapon inspector did not surface effective-rule evidence');
   requireCondition(opened?.browserEvidence?.providers?.rulesetTools?.id === 'openxcom.ruleset-tools', 'Ruleset Tools provider identity missing');
@@ -106,6 +111,7 @@ export async function run() {
       staticSemanticClassificationObserved: true,
       engineBeforeAttachment: beforeEngine.engine.state,
       engineAfterAttachment: opened.browserEvidence.engine.state,
+      correlationId: opened.browserEvidence.engine.correlationId,
       createdBy: opened.browserEvidence.engine.createdBy.source,
       effectiveRule: opened.browserEvidence.engine.effectiveRule.source
     },
