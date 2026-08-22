@@ -15,6 +15,13 @@ export const EDITABLE_WEAPON_FIELDS = Object.freeze([
 export const SOURCE_EVIDENCE_ORIGIN = 'SOURCE/TEXT';
 
 const EDITABLE_FIELD_SET = new Set(EDITABLE_WEAPON_FIELDS);
+const PARTIAL_WEAPON_SIGNATURE_FIELDS = Object.freeze([
+  'accuracySnap',
+  'accuracyAimed',
+  'tuSnap',
+  'tuAimed',
+  'fireSound'
+]);
 
 function parseRuleset(source) {
   if (typeof source !== 'string') throw new Error('source must be a string');
@@ -50,6 +57,12 @@ function findWeaponMap(items, weaponId) {
 function scalarValue(entry, field) {
   const node = entry.get(field, true);
   return isScalar(node) ? node.value : undefined;
+}
+
+function isBoundedWeaponEntry(entry) {
+  const battleType = scalarValue(entry, 'battleType');
+  if (battleType !== undefined) return battleType === 1;
+  return PARTIAL_WEAPON_SIGNATURE_FIELDS.some(field => scalarValue(entry, field) !== undefined);
 }
 
 function validateReplacementType(field, current, value) {
@@ -93,7 +106,7 @@ export function readWeaponDocument(source) {
     if (!isMap(entry)) continue;
     const type = scalarValue(entry, 'type');
     if (typeof type !== 'string' || type.length === 0) continue;
-    if (scalarValue(entry, 'battleType') !== 1) continue;
+    if (!isBoundedWeaponEntry(entry)) continue;
 
     const fields = {};
     for (const field of EDITABLE_WEAPON_FIELDS) {
@@ -111,7 +124,7 @@ export function editWeaponScalar(source, { weaponId, field, value }) {
 
   const { items } = parseRuleset(source);
   const weapon = findWeaponMap(items, weaponId);
-  if (scalarValue(weapon, 'battleType') !== 1) throw new Error(`${weaponId} is not a firearm weapon (battleType 1).`);
+  if (!isBoundedWeaponEntry(weapon)) throw new Error(`${weaponId} is not a bounded firearm weapon source node.`);
 
   const node = weapon.get(field, true);
   if (!isScalar(node)) throw new Error(`Weapon ${weaponId} has no existing scalar ${field} field to edit.`);
