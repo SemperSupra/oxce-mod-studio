@@ -91,7 +91,7 @@ jobs:
         run: |
           set -euo pipefail
           npm ci --prefix .upstream/vscode-ruleset
-          node .upstream/vscode-ruleset/build/index.js
+          (cd .upstream/vscode-ruleset && node build/index.js)
           node spikes/ruleset-tools-web/localize-schema-refs.mjs .upstream/vscode-ruleset/schemas/oxce
           node spikes/ruleset-tools-web/prepare-upstream.mjs .upstream/vscode-ruleset
           "$GITHUB_WORKSPACE/packages/weapon-editor/node_modules/.bin/esbuild" \
