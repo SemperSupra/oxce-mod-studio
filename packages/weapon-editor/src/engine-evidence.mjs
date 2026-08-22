@@ -3,10 +3,37 @@ const AUTHORITATIVE_PHASE = 'validate-rulesets';
 const AUTHORITATIVE_KIND = 'snapshot';
 const SUPPORTED_CATEGORIES = new Set(['items', 'research']);
 const SUPPORTED_OPERATIONS = new Set(['created-by', 'effective-rule']);
+const ISO8601_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/;
 
 function assertString(value, field, lineNumber) {
   if (typeof value !== 'string') {
     throw new Error(`OXCE observer line ${lineNumber}: ${field} must be a string.`);
+  }
+  return value;
+}
+
+function optionalTimestamp(value, lineNumber) {
+  if (value == null) return null;
+  const timestamp = assertString(value, 'timestamp', lineNumber);
+  if (!ISO8601_UTC.test(timestamp)) {
+    throw new Error(`OXCE observer line ${lineNumber}: timestamp must be ISO 8601 UTC.`);
+  }
+  return timestamp;
+}
+
+function optionalCorrelationId(value, lineNumber) {
+  if (value == null) return null;
+  const correlationId = assertString(value, 'correlation_id', lineNumber);
+  if (!correlationId) {
+    throw new Error(`OXCE observer line ${lineNumber}: correlation_id must not be empty.`);
+  }
+  return correlationId;
+}
+
+function optionalSequence(value, lineNumber) {
+  if (value == null) return null;
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`OXCE observer line ${lineNumber}: sequence must be a positive integer.`);
   }
   return value;
 }
@@ -16,6 +43,7 @@ export function parseCompileObserverJsonl(text) {
 
   const events = [];
   const lines = text.split(/\r?\n/);
+  let previousSequence = null;
   for (let index = 0; index < lines.length; index += 1) {
     const raw = lines[index].trim();
     if (!raw) continue;
@@ -35,8 +63,17 @@ export function parseCompileObserverJsonl(text) {
       throw new Error(`OXCE observer line ${lineNumber}: unsupported observer schema ${String(event.schema)}.`);
     }
 
+    const sequence = optionalSequence(event.sequence, lineNumber);
+    if (sequence != null && previousSequence != null && sequence <= previousSequence) {
+      throw new Error(`OXCE observer line ${lineNumber}: sequence must increase monotonically.`);
+    }
+    if (sequence != null) previousSequence = sequence;
+
     events.push({
       schema: OBSERVER_SCHEMA,
+      timestamp: optionalTimestamp(event.timestamp, lineNumber),
+      correlationId: optionalCorrelationId(event.correlation_id, lineNumber),
+      sequence,
       kind: assertString(event.kind, 'kind', lineNumber),
       phase: assertString(event.phase, 'phase', lineNumber),
       category: assertString(event.category, 'category', lineNumber),
@@ -50,6 +87,14 @@ export function parseCompileObserverJsonl(text) {
   return events;
 }
 
+function traceCorrelationId(events) {
+  const ids = [...new Set(events.map(event => event.correlationId).filter(Boolean))];
+  if (ids.length > 1) {
+    throw new Error(`OXCE observer evidence contains multiple correlation IDs: ${ids.join(', ')}.`);
+  }
+  return ids[0] ?? null;
+}
+
 export function collectAuthoritativeRuleEvidence(jsonl, { category, identity }) {
   if (!SUPPORTED_CATEGORIES.has(category)) {
     throw new Error(`Unsupported authoritative evidence category: ${String(category)}.`);
@@ -58,7 +103,9 @@ export function collectAuthoritativeRuleEvidence(jsonl, { category, identity }) 
     throw new Error('Authoritative evidence identity must be a non-empty canonical OXCE ID.');
   }
 
-  const matched = parseCompileObserverJsonl(jsonl).filter(event =>
+  const parsed = parseCompileObserverJsonl(jsonl);
+  const correlationId = traceCorrelationId(parsed);
+  const matched = parsed.filter(event =>
     event.kind === AUTHORITATIVE_KIND &&
     event.phase === AUTHORITATIVE_PHASE &&
     event.category === category &&
@@ -85,6 +132,7 @@ export function collectAuthoritativeRuleEvidence(jsonl, { category, identity }) 
       phase: AUTHORITATIVE_PHASE,
       category,
       identity,
+      correlationId,
       createdBy: null,
       effectiveRule: null
     };
@@ -92,6 +140,14 @@ export function collectAuthoritativeRuleEvidence(jsonl, { category, identity }) 
 
   const created = byOperation.get('created-by') ?? null;
   const effective = byOperation.get('effective-rule') ?? null;
+  const provenance = event => event ? {
+    source: event.source || null,
+    outcome: event.outcome,
+    timestamp: event.timestamp,
+    sequence: event.sequence,
+    lineNumber: event.lineNumber
+  } : null;
+
   return {
     evidenceOrigin: 'ENGINE-AUTHORITATIVE',
     state: 'available',
@@ -99,16 +155,9 @@ export function collectAuthoritativeRuleEvidence(jsonl, { category, identity }) 
     phase: AUTHORITATIVE_PHASE,
     category,
     identity,
-    createdBy: created ? {
-      source: created.source || null,
-      outcome: created.outcome,
-      lineNumber: created.lineNumber
-    } : null,
-    effectiveRule: effective ? {
-      source: effective.source || null,
-      outcome: effective.outcome,
-      lineNumber: effective.lineNumber
-    } : null
+    correlationId,
+    createdBy: provenance(created),
+    effectiveRule: provenance(effective)
   };
 }
 
