@@ -1,0 +1,2 @@
+# Deliberately valid YAML but invalid against the pinned OXCE schema.
+definitelyNotARealRule: true
