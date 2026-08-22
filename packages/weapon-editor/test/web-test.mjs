@@ -14,8 +14,11 @@ export async function run() {
 
   const commands = await vscode.commands.getCommands(true);
   requireCondition(commands.includes('oxceModStudio.openWeaponEditor'), 'public weapon inspector command not registered');
+  requireCondition(commands.includes('oxceModStudio.attachEngineEvidence'), 'public engine evidence attachment command not registered');
   requireCondition(commands.includes('oxceModStudio._applyWeaponScalar'), 'testable bounded scalar command not registered');
   requireCondition(commands.includes('oxceModStudio._inspectBrowserEvidence'), 'browser evidence adapter command not registered');
+  requireCondition(commands.includes('oxceModStudio._inspectEngineEvidence'), 'engine evidence adapter command not registered');
+  requireCondition(commands.includes('oxceModStudio._attachEngineEvidenceText'), 'test engine evidence attachment command not registered');
 
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
   requireCondition(workspaceFolder, 'expected one web-test workspace folder');
@@ -35,22 +38,46 @@ export async function run() {
   diagnostic.source = 'OXCE test static';
   injectedDiagnostics.set(uri, [diagnostic]);
 
+  const beforeEngine = await vscode.commands.executeCommand('oxceModStudio._inspectBrowserEvidence', uri);
+  requireCondition(beforeEngine?.engine?.evidenceOrigin === 'ENGINE-AUTHORITATIVE', 'engine evidence class must be explicit before attachment');
+  requireCondition(beforeEngine?.engine?.state === 'not-run', 'engine evidence must begin explicitly not-run');
+
+  const engineJsonl = [
+    JSON.stringify({schema: 1, kind: 'snapshot', phase: 'validate-rulesets', category: 'items', operation: 'created-by', identity: 'STR_WEB_TEST_WEAPON', source: 'Test Core', outcome: 'present'}),
+    JSON.stringify({schema: 1, kind: 'snapshot', phase: 'validate-rulesets', category: 'items', operation: 'effective-rule', identity: 'STR_WEB_TEST_WEAPON', source: 'Test Balance Patch', outcome: 'present'})
+  ].join('\n');
+
+  const directEvidence = await vscode.commands.executeCommand(
+    'oxceModStudio._inspectEngineEvidence',
+    engineJsonl,
+    'items',
+    'STR_WEB_TEST_WEAPON'
+  );
+  requireCondition(directEvidence?.state === 'available', 'bounded engine evidence parser did not return available evidence');
+  requireCondition(directEvidence?.createdBy?.source === 'Test Core', 'created-by provenance was not preserved');
+  requireCondition(directEvidence?.effectiveRule?.source === 'Test Balance Patch', 'effective-rule provenance was not preserved');
+
+  const attached = await vscode.commands.executeCommand(
+    'oxceModStudio._attachEngineEvidenceText',
+    engineJsonl,
+    'synthetic VS Code Web evidence'
+  );
+  requireCondition(attached?.state === 'attached' && attached?.eventCount === 2, 'engine evidence was not attached to the web session');
+
   const opened = await vscode.commands.executeCommand('oxceModStudio.openWeaponEditor');
   requireCondition(opened?.weaponId === 'STR_WEB_TEST_WEAPON', `weapon inspector returned unexpected id: ${opened?.weaponId}`);
   requireCondition(opened?.kind === 'item', `weapon inspector must expose canonical kind, got ${opened?.kind}`);
   requireCondition(opened?.evidenceOrigin === 'SOURCE/TEXT', `weapon inspector must label source evidence, got ${opened?.evidenceOrigin}`);
   requireCondition(opened?.browserEvidence?.source?.evidenceOrigin === 'SOURCE/TEXT', 'browser evidence must identify source/text evidence');
-  requireCondition(opened?.browserEvidence?.engine?.state === 'not-run', 'browser view must not imply OXCE engine evidence ran');
+  requireCondition(opened?.browserEvidence?.engine?.state === 'available', 'weapon inspector did not transition to attached authoritative evidence');
+  requireCondition(opened?.browserEvidence?.engine?.createdBy?.source === 'Test Core', 'weapon inspector did not surface created-by evidence');
+  requireCondition(opened?.browserEvidence?.engine?.effectiveRule?.source === 'Test Balance Patch', 'weapon inspector did not surface effective-rule evidence');
   requireCondition(opened?.browserEvidence?.providers?.rulesetTools?.id === 'openxcom.ruleset-tools', 'Ruleset Tools provider identity missing');
   requireCondition(opened?.browserEvidence?.providers?.yaml?.id === 'redhat.vscode-yaml', 'Red Hat YAML provider identity missing');
   requireCondition(
     opened?.browserEvidence?.diagnostics?.some(item => item.evidenceOrigin === 'STATIC-SEMANTIC' && item.source === 'OXCE test static'),
     'VS Code diagnostic bus evidence was not surfaced/classified as static semantic evidence'
   );
-
-  const inspected = await vscode.commands.executeCommand('oxceModStudio._inspectBrowserEvidence', uri);
-  requireCondition(inspected?.engine?.evidenceOrigin === 'ENGINE-AUTHORITATIVE', 'engine evidence class must be explicit');
-  requireCondition(inspected?.engine?.state === 'not-run', 'engine evidence must remain explicitly not-run');
 
   const applied = await vscode.commands.executeCommand(
     'oxceModStudio._applyWeaponScalar',
@@ -74,14 +101,13 @@ export async function run() {
     extensionVersion: extension.packageJSON.version,
     workspaceScheme: workspaceFolder.uri.scheme,
     weaponId: opened.weaponId,
-    kind: opened.kind,
-    evidenceOrigin: opened.evidenceOrigin,
-    browserEvidence: {
-      diagnosticBusConsumed: true,
+    evidence: {
+      source: opened.evidenceOrigin,
       staticSemanticClassificationObserved: true,
-      engineState: opened.browserEvidence.engine.state,
-      rulesetToolsInstalled: opened.browserEvidence.providers.rulesetTools.installed,
-      yamlInstalled: opened.browserEvidence.providers.yaml.installed
+      engineBeforeAttachment: beforeEngine.engine.state,
+      engineAfterAttachment: opened.browserEvidence.engine.state,
+      createdBy: opened.browserEvidence.engine.createdBy.source,
+      effectiveRule: opened.browserEvidence.engine.effectiveRule.source
     },
     exactSourceSpanEdit: true,
     unknownFieldPreserved: true
