@@ -6,6 +6,10 @@
   "publisher": "sempersupra",
   "type": "module",
   "browser": "./dist/extension.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SemperSupra/oxce-mod-studio.git"
+  },
   "engines": {
     "vscode": "^1.96.0",
     "node": ">=22"
