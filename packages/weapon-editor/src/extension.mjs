@@ -122,13 +122,18 @@ function collectBrowserEvidence(document, weapon = null) {
 
 function attachEngineEvidenceText(text, label = 'attached JSONL evidence') {
   const events = parseCompileObserverJsonl(text);
+  const correlationIds = [...new Set(events.map(event => event.correlationId).filter(Boolean))];
+  if (correlationIds.length > 1) {
+    throw new Error(`OXCE observer evidence contains multiple correlation IDs: ${correlationIds.join(', ')}.`);
+  }
   attachedEngineEvidenceText = text;
   attachedEngineEvidenceLabel = label;
   return {
     evidenceOrigin: 'ENGINE-AUTHORITATIVE',
     state: 'attached',
     label,
-    eventCount: events.length
+    eventCount: events.length,
+    correlationId: correlationIds[0] ?? null
   };
 }
 
@@ -148,7 +153,8 @@ async function attachEngineEvidenceFile() {
   const bytes = await vscode.workspace.fs.readFile(uri);
   const text = new TextDecoder('utf-8').decode(bytes);
   const result = attachEngineEvidenceText(text, uri.toString());
-  void vscode.window.showInformationMessage(`Attached OXCE engine evidence (${result.eventCount} events).`);
+  const correlated = result.correlationId ? ` · correlation ${result.correlationId}` : '';
+  void vscode.window.showInformationMessage(`Attached OXCE engine evidence (${result.eventCount} events${correlated}).`);
   return result;
 }
 
@@ -167,21 +173,32 @@ function renderEngineEvidence(engine) {
   if (engine.state === 'not-run') {
     return '<p><strong>ENGINE-AUTHORITATIVE:</strong> not run / no evidence attached.</p>';
   }
+
+  const correlation = engine.correlationId
+    ? `<p><strong>Correlation:</strong> <code>${escapeHtml(engine.correlationId)}</code></p>`
+    : '<p><strong>Correlation:</strong> not present in this schema-1 trace.</p>';
+
   if (engine.state === 'not-found') {
-    return `<p><strong>ENGINE-AUTHORITATIVE:</strong> attached evidence contains no bounded item snapshot for <code>${escapeHtml(engine.identity)}</code>.</p>`;
+    return `<p><strong>ENGINE-AUTHORITATIVE:</strong> attached evidence contains no bounded item snapshot for <code>${escapeHtml(engine.identity)}</code>.</p>${correlation}`;
   }
 
-  const created = engine.createdBy?.source
-    ? `<code>${escapeHtml(engine.createdBy.source)}</code>`
-    : escapeHtml(engine.createdBy?.outcome ?? 'not reported');
-  const effective = engine.effectiveRule?.source
-    ? `<code>${escapeHtml(engine.effectiveRule.source)}</code>`
-    : escapeHtml(engine.effectiveRule?.outcome ?? 'not reported');
+  const provenance = entry => {
+    const source = entry?.source
+      ? `<code>${escapeHtml(entry.source)}</code>`
+      : escapeHtml(entry?.outcome ?? 'not reported');
+    const details = [
+      entry?.timestamp ? escapeHtml(entry.timestamp) : null,
+      entry?.sequence != null ? `event #${escapeHtml(entry.sequence)}` : null
+    ].filter(Boolean).join(' · ');
+    return details ? `${source} <span class="note">(${details})</span>` : source;
+  };
+
   return `
     <p><strong>ENGINE-AUTHORITATIVE:</strong> available · OXCE observer schema ${escapeHtml(engine.schema)}</p>
+    ${correlation}
     <ul>
-      <li>created by: ${created}</li>
-      <li>effective rule: ${effective}</li>
+      <li>created by: ${provenance(engine.createdBy)}</li>
+      <li>effective rule: ${provenance(engine.effectiveRule)}</li>
     </ul>`;
 }
 
