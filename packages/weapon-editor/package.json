@@ -17,6 +17,7 @@
   "categories": ["Other"],
   "activationEvents": [
     "onCommand:oxceModStudio.openWeaponEditor",
+    "onCommand:oxceModStudio.attachEngineEvidence",
     "onCommand:oxceModStudio._applyWeaponScalar"
   ],
   "capabilities": {
@@ -28,6 +29,11 @@
       {
         "command": "oxceModStudio.openWeaponEditor",
         "title": "Open Weapon Inspector",
+        "category": "OXCE Mod Studio"
+      },
+      {
+        "command": "oxceModStudio.attachEngineEvidence",
+        "title": "Attach OXCE Engine Evidence",
         "category": "OXCE Mod Studio"
       }
     ]
