@@ -1,0 +1,46 @@
+{
+  "name": "oxce-mod-studio",
+  "displayName": "OXCE Mod Studio",
+  "description": "Source-preserving OXCE mod authoring tools for VS Code and github.dev.",
+  "version": "0.0.1",
+  "publisher": "sempersupra",
+  "type": "module",
+  "browser": "./dist/extension.js",
+  "engines": {
+    "vscode": "^1.96.0",
+    "node": ">=22"
+  },
+  "extensionKind": ["workspace"],
+  "categories": ["Other"],
+  "activationEvents": [
+    "onCommand:oxceModStudio.openWeaponEditor",
+    "onCommand:oxceModStudio._applyWeaponScalar"
+  ],
+  "capabilities": {
+    "virtualWorkspaces": true,
+    "untrustedWorkspaces": {"supported": true}
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "oxceModStudio.openWeaponEditor",
+        "title": "Open Weapon Inspector",
+        "category": "OXCE Mod Studio"
+      }
+    ]
+  },
+  "dependencies": {"yaml": "2.9.0"},
+  "devDependencies": {
+    "@vscode/test-web": "0.0.81",
+    "@vscode/vsce": "3.9.2",
+    "esbuild": "0.25.9"
+  },
+  "scripts": {
+    "test": "node ./test/source-editor.test.mjs",
+    "build:web": "esbuild ./src/extension.mjs --bundle --platform=browser --format=cjs --external:vscode --outfile=./dist/extension.js",
+    "build:web-test": "esbuild ./test/web-test.mjs --bundle --platform=browser --format=cjs --external:vscode --outfile=./dist/web-test.js",
+    "test:web": "npm run build:web && npm run build:web-test && vscode-test-web --quality=stable --browserType=chromium --headless --verbose --printServerLog --extensionDevelopmentPath=. --extensionTestsPath=dist/web-test.js ./test/workspace",
+    "package:vsix": "npm run build:web && vsce package --out ./dist/oxce-mod-studio-0.0.1.vsix",
+    "check": "npm test && npm run build:web"
+  }
+}
