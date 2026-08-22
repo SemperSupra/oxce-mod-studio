@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "project": "SemperSupra/oxce-mod-studio",
+  "role": "public-product-generator-plane",
+  "source": {
+    "must_originate_from_public_commit": true,
+    "private_repository_archives_allowed": false,
+    "release_source_snapshot_required": true,
+    "source_binary_commit_match_required": true
+  },
+  "release": {
+    "manifest_required": true,
+    "sha256_required": true,
+    "independent_public_verification_required": true,
+    "mutable_experimental_channel": "studio-exp-current",
+    "mutable_channel_is_immutable_package_version": false
+  },
+  "evidence_classes": [
+    "SOURCE/TEXT",
+    "SCHEMA",
+    "STATIC-SEMANTIC",
+    "ENGINE-AUTHORITATIVE",
+    "RUNTIME/BEHAVIORAL"
+  ],
+  "evidence_rules": {
+    "lower_layer_may_claim_higher_layer": false,
+    "engine_authority": "OXCE"
+  },
+  "private_by_default_value_categories": [
+    "comprehensive-conformance-corpus",
+    "adversarial-negative-regression-corpus",
+    "curated-domain-ontology-knowledge",
+    "fuzz-mutation-coverage-knowledge",
+    "golden-oracle-expectations",
+    "compatibility-failure-fingerprints",
+    "evaluator-scoring-triage-heuristics",
+    "private-red-team-findings",
+    "private-validation-provenance"
+  ],
+  "classification_note": "Public/private classification is semantic and governance-driven; file type or path name alone is not sufficient.",
+  "public_test_purpose": "Prove the public product/build/integration contract without requiring publication of the comprehensive private validator corpus."
+}
