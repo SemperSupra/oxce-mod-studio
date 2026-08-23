@@ -49,6 +49,8 @@ if (replacements === 0) {
   throw new Error('no OpenXcom absolute schema references were found; pinned schema shape may have drifted');
 }
 
+// Prove the localized output no longer contains references that force a
+// network lookup for the generated OXCE schema graph.
 for (const file of fs.readdirSync(schemaDir).filter(name => name.endsWith('.json'))) {
   const text = fs.readFileSync(path.join(schemaDir, file), 'utf8');
   if (text.includes('https://openxcom.org/schemas/')) {

@@ -67,7 +67,9 @@ function isBoundedWeaponEntry(entry) {
 
 function validateReplacementType(field, current, value) {
   if (typeof current === 'number') {
-    if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`${field} must remain a finite number.`);
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      throw new Error(`${field} must remain a finite number.`);
+    }
     return;
   }
   if (typeof current === 'string') {
@@ -113,7 +115,12 @@ export function readWeaponDocument(source) {
       const value = scalarValue(entry, field);
       if (value !== undefined) fields[field] = value;
     }
-    weapons.push({id: type, kind: 'item', evidenceOrigin: SOURCE_EVIDENCE_ORIGIN, fields});
+    weapons.push({
+      id: type,
+      kind: 'item',
+      evidenceOrigin: SOURCE_EVIDENCE_ORIGIN,
+      fields
+    });
   }
   return { weapons };
 }
@@ -124,13 +131,18 @@ export function editWeaponScalar(source, { weaponId, field, value }) {
 
   const { items } = parseRuleset(source);
   const weapon = findWeaponMap(items, weaponId);
-  if (!isBoundedWeaponEntry(weapon)) throw new Error(`${weaponId} is not a bounded firearm weapon source node.`);
+  if (!isBoundedWeaponEntry(weapon)) {
+    throw new Error(`${weaponId} is not a bounded firearm weapon source node.`);
+  }
 
   const node = weapon.get(field, true);
-  if (!isScalar(node)) throw new Error(`Weapon ${weaponId} has no existing scalar ${field} field to edit.`);
+  if (!isScalar(node)) {
+    throw new Error(`Weapon ${weaponId} has no existing scalar ${field} field to edit.`);
+  }
 
   const current = node.value;
   validateReplacementType(field, current, value);
   if (Object.is(current, value)) return source;
+
   return replaceScalarSourceSpan(source, node, value);
 }

@@ -13,8 +13,12 @@
     "vscode": "^1.96.0",
     "node": ">=22"
   },
-  "extensionKind": ["workspace"],
-  "categories": ["Other"],
+  "extensionKind": [
+    "workspace"
+  ],
+  "categories": [
+    "Other"
+  ],
   "activationEvents": [
     "onCommand:oxceModStudio.openWeaponEditor",
     "onCommand:oxceModStudio.attachEngineEvidence",
@@ -22,7 +26,9 @@
   ],
   "capabilities": {
     "virtualWorkspaces": true,
-    "untrustedWorkspaces": {"supported": true}
+    "untrustedWorkspaces": {
+      "supported": true
+    }
   },
   "contributes": {
     "commands": [
@@ -38,7 +44,9 @@
       }
     ]
   },
-  "dependencies": {"yaml": "2.9.0"},
+  "dependencies": {
+    "yaml": "2.9.0"
+  },
   "devDependencies": {
     "@vscode/test-web": "0.0.81",
     "@vscode/vsce": "3.9.2",

@@ -42,8 +42,9 @@ export async function run() {
   requireCondition(beforeEngine?.engine?.evidenceOrigin === 'ENGINE-AUTHORITATIVE', 'engine evidence class must be explicit before attachment');
   requireCondition(beforeEngine?.engine?.state === 'not-run', 'engine evidence must begin explicitly not-run');
 
-  // Browser transport fixture only. The corresponding semantic provenance shape
-  // has been proven separately by a real isolated OXCE run.
+  // This two-event trace is a browser-contract fixture only. The same provenance
+  // shape has been proven separately by a real isolated OXCE run; public Web CI
+  // must not masquerade this synthetic transport test as that semantic proof.
   const correlationId = 'web-test-correlation-1';
   const engineJsonl = [
     JSON.stringify({schema: 1, timestamp: '2026-08-22T16:47:51.147Z', correlation_id: correlationId, sequence: 38, kind: 'snapshot', phase: 'validate-rulesets', category: 'items', operation: 'created-by', identity: 'STR_PISTOL', source: 'xcom1', outcome: 'present'}),

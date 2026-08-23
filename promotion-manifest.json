@@ -1,0 +1,172 @@
+{
+  "schema": 1,
+  "kind": "oxce-mod-studio-public-promotion-manifest",
+  "project": "SemperSupra/oxce-mod-studio",
+  "privateCandidateSha": "6dffa2bbe2efb8be39dd31a2eafe4878791307da",
+  "privateCandidateTreeSha": "ef812e370d5a959cae0d86774adf5f0c967d7f6d",
+  "publicProjectionBaseSha": "6d5d5724abcc3db8bb935510d582e2ec59348ed4",
+  "projectionPolicySha256": "a8fce16f2ad47edb74146eb4ed29227965db21e07e0b3c761ef8cd94f41459c2",
+  "projectionToolSha256": "179f96918bfddfc16a9e41865c0e38117d5f35756bc2bcebde159cc1a7ca8f38",
+  "lifecycleProofSha256": "09812f948788147138eaec2d446036cc0aa8e072c73969805c29993e14f1503a",
+  "approvalSha256": "8ce8150d0db91cb608f87584c7c1bdae5b48d49f4944726502aab200e2df6cfb",
+  "managed": [
+    {
+      "sourcePath": "examples/mvp-weapon-mod/Language/en-US.yml",
+      "targetPath": "examples/mvp-weapon-mod/Language/en-US.yml",
+      "classification": "public-synthetic-acceptance-fixture-runtime",
+      "gitMode": "100644",
+      "gitObject": "03bd4061c3696f32ad7d036a7e0388aae7c2ede2",
+      "size": 85,
+      "sha256": "5c6d525a09047c9126fef091192d75030a8d7a76e3014dfcb490e5f084985375"
+    },
+    {
+      "sourcePath": "examples/mvp-weapon-mod/metadata.yml",
+      "targetPath": "examples/mvp-weapon-mod/metadata.yml",
+      "classification": "public-synthetic-acceptance-fixture-runtime",
+      "gitMode": "100644",
+      "gitObject": "ffea4b8a07707f5fb0dff8c0f27affbe4e1e74e9",
+      "size": 262,
+      "sha256": "e523a6a848608bfff503fb3cace63276ccf6baa5ec577fe364d862ea024ac805"
+    },
+    {
+      "sourcePath": "examples/mvp-weapon-mod/Ruleset/weapon.rul",
+      "targetPath": "examples/mvp-weapon-mod/Ruleset/weapon.rul",
+      "classification": "public-synthetic-acceptance-fixture-runtime",
+      "gitMode": "100644",
+      "gitObject": "4eb81a9c5133895d58289f5344456f2f80d5ce90",
+      "size": 258,
+      "sha256": "5170bb983cd9f92931d071fcf420c7eb96cb36596c7c4de7ca4a2f670bd2c081"
+    },
+    {
+      "sourcePath": "packages/weapon-editor/.vscodeignore",
+      "targetPath": "packages/weapon-editor/.vscodeignore",
+      "classification": "public-product-source-tests",
+      "gitMode": "100644",
+      "gitObject": "76682643c01475b5d6b770588fa233bc61fbe3a6",
+      "size": 55,
+      "sha256": "18bd7cceae1b3d3910a3204423974012c323d345def516184c4463d25b3b2f3a"
+    },
+    {
+      "sourcePath": "packages/weapon-editor/package.json",
+      "targetPath": "packages/weapon-editor/package.json",
+      "classification": "public-product-source-tests",
+      "gitMode": "100644",
+      "gitObject": "1169557357539912e930c21ee87f85162ca17e56",
+      "size": 2078,
+      "sha256": "a4c02a1c199c1a012d495eb5717a8bd299bcc16557331d1f6fdc6946dcd19004"
+    },
+    {
+      "sourcePath": "packages/weapon-editor/README.md",
+      "targetPath": "packages/weapon-editor/README.md",
+      "classification": "public-product-source-tests",
+      "gitMode": "100644",
+      "gitObject": "25dd858cb49017fc9817bdff8a4cda294b3fe758",
+      "size": 2524,
+      "sha256": "bd444ed5369e72708ee3dc67a42ceb8887dfec32904ae82570fcd3d162b0b04a"
+    },
+    {
+      "sourcePath": "packages/weapon-editor/src/engine-evidence.mjs",
+      "targetPath": "packages/weapon-editor/src/engine-evidence.mjs",
+      "classification": "public-product-source-tests",
+      "gitMode": "100644",
+      "gitObject": "afd6a33f906362d60a1a716fb75b170afe2d5202",
+      "size": 5883,
+      "sha256": "f19937fa4411a4c0544a099bb21a7132ab6fa06d173b536f44a8be78cc55e284"
+    },
+    {
+      "sourcePath": "packages/weapon-editor/src/extension.mjs",
+      "targetPath": "packages/weapon-editor/src/extension.mjs",
+      "classification": "public-product-source-tests",
+      "gitMode": "100644",
+      "gitObject": "802e8a522adf5488ac337cc9c8eacf0b8199ea17",
+      "size": 15100,
+      "sha256": "5b48b6027bc14228ddf5c86edf1502d334d076e5d45ad40b174007e9e9a7acf4"
+    },
+    {
+      "sourcePath": "packages/weapon-editor/src/source-editor.mjs",
+      "targetPath": "packages/weapon-editor/src/source-editor.mjs",
+      "classification": "public-product-source-tests",
+      "gitMode": "100644",
+      "gitObject": "950e2d38422805af8c0c5b78976fd2afd18db33a",
+      "size": 4939,
+      "sha256": "805b16f515cf0df111e9a0c23f057937f4aa2d8153bbc2124282a4ce3f745e5f"
+    },
+    {
+      "sourcePath": "packages/weapon-editor/test/engine-evidence.test.mjs",
+      "targetPath": "packages/weapon-editor/test/engine-evidence.test.mjs",
+      "classification": "public-product-source-tests",
+      "gitMode": "100644",
+      "gitObject": "ae3b3d0328810d3225c746c0c53f2909c9db5001",
+      "size": 4808,
+      "sha256": "ee698e05f4f76c85854415c8a8a22afe3549d5c865626eac5da123a48883eace"
+    },
+    {
+      "sourcePath": "packages/weapon-editor/test/provider-web-test.mjs",
+      "targetPath": "packages/weapon-editor/test/provider-web-test.mjs",
+      "classification": "public-product-source-tests",
+      "gitMode": "100644",
+      "gitObject": "1b47a4e21ad2bb8067228cc3572a69178eac1021",
+      "size": 4798,
+      "sha256": "cdcd9f78ae4334b57018f73b7e7be4652364a9b61e41f1755c89e08aa4f77acf"
+    },
+    {
+      "sourcePath": "packages/weapon-editor/test/source-editor.test.mjs",
+      "targetPath": "packages/weapon-editor/test/source-editor.test.mjs",
+      "classification": "public-product-source-tests",
+      "gitMode": "100644",
+      "gitObject": "c906d76b09b0c4249f9f2b3978a36da11fd9fe02",
+      "size": 5063,
+      "sha256": "591139c4b5402e3547a7b7ad4ea2244f8db40129aa6b29c185dbec7c974162ba"
+    },
+    {
+      "sourcePath": "packages/weapon-editor/test/web-test.mjs",
+      "targetPath": "packages/weapon-editor/test/web-test.mjs",
+      "classification": "public-product-source-tests",
+      "gitMode": "100644",
+      "gitObject": "5202934dc4b251986c76465b025a5e25f6915510",
+      "size": 8397,
+      "sha256": "96f6b6efbddb80ce8aa9ff5adec63b4a72179444ef6a03d242d87a096471bcd8"
+    },
+    {
+      "sourcePath": "packages/weapon-editor/test/workspace/provider-invalid.rul",
+      "targetPath": "packages/weapon-editor/test/workspace/provider-invalid.rul",
+      "classification": "public-product-source-tests",
+      "gitMode": "100644",
+      "gitObject": "7ae372fdf4cb8d267b4612c08759b427fa098b50",
+      "size": 99,
+      "sha256": "78df5d51d27b6c3f57132fb0e3dcb8c4aa76443c8b4b9cfcfe803ac7a0e97406"
+    },
+    {
+      "sourcePath": "packages/weapon-editor/test/workspace/weapon.rul",
+      "targetPath": "packages/weapon-editor/test/workspace/weapon.rul",
+      "classification": "public-product-source-tests",
+      "gitMode": "100644",
+      "gitObject": "4eb81a9c5133895d58289f5344456f2f80d5ce90",
+      "size": 258,
+      "sha256": "5170bb983cd9f92931d071fcf420c7eb96cb36596c7c4de7ca4a2f670bd2c081"
+    },
+    {
+      "sourcePath": "spikes/ruleset-tools-web/localize-schema-refs.mjs",
+      "targetPath": "spikes/ruleset-tools-web/localize-schema-refs.mjs",
+      "classification": "public-build-adapter",
+      "gitMode": "100644",
+      "gitObject": "bf9df34104b22f7fa1d69c08e7565fb0768abe87",
+      "size": 2052,
+      "sha256": "a607deec59d74a4ef4847b1af4ae16095d3366e3ce55a9e0b28e5b0a21df09f8"
+    },
+    {
+      "sourcePath": "spikes/ruleset-tools-web/prepare-upstream.mjs",
+      "targetPath": "spikes/ruleset-tools-web/prepare-upstream.mjs",
+      "classification": "public-build-adapter",
+      "gitMode": "100644",
+      "gitObject": "01c8ece2c6ed3a59568f5b1d113d66de5c42259b",
+      "size": 4905,
+      "sha256": "4415e616d66836da2533cb34aca87c947d24cae2ff371eb1d9bf311c1bec95d4"
+    }
+  ],
+  "postProjectionReleaseGates": [
+    "public-browser-provider-ci",
+    "marketplace-delivery",
+    "actual-github.dev-human-collaboration"
+  ]
+}
