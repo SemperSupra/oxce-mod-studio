@@ -65,6 +65,12 @@ jobs:
               'manifest required': release.get('manifest_required') is True,
               'SHA-256 required': release.get('sha256_required') is True,
               'public verifier required': release.get('independent_public_verification_required') is True,
+              'governed private-to-public lineage required': release.get('governed_private_to_public_lineage_required_for_publication') is True,
+              'expected promotion receipt kind': release.get('promotion_receipt_kind') == 'oxce-mod-studio-public-release-receipt',
+              'structural receipt assurance mode': release.get('promotion_receipt_assurance_mode') == 'structural-hash-commitment',
+              'receipt not falsely claimed cryptographically signed': release.get('promotion_receipt_cryptographically_signed') is False,
+              'publication without receipt forbidden': release.get('publication_without_valid_promotion_receipt_allowed') is False,
+              'transitional build/test without receipt allowed': release.get('transitional_build_test_without_promotion_receipt_allowed') is True,
               'rolling tag not immutable package version': release.get('mutable_channel_is_immutable_package_version') is False,
               'no evidence-layer promotion': evidence.get('lower_layer_may_claim_higher_layer') is False,
               'OXCE engine authority': evidence.get('engine_authority') == 'OXCE',
@@ -102,6 +108,7 @@ jobs:
                   raise SystemExit(f'{name} release-workflow pin changed without publication-policy review: {sorted(observed_refs)!r}')
 
           print('publication policy contract validated')
+          print('governed promotion-lineage release invariants validated')
           print('release-sensitive official Action refs are immutable and match reviewed pins')
           PY
 
