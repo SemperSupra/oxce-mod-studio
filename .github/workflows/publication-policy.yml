@@ -1,0 +1,124 @@
+name: Validate publication policy
+
+on:
+  push:
+    branches:
+      - semper/weapon-editor-exp
+    paths:
+      - 'README.md'
+      - 'AGENTS.md'
+      - 'release-policy.json'
+      - '.github/workflows/publication-policy.yml'
+      - '.github/workflows/weapon-editor-public.yml'
+      - '.github/workflows/verify-experimental-release.yml'
+  pull_request:
+    paths:
+      - 'README.md'
+      - 'AGENTS.md'
+      - 'release-policy.json'
+      - '.github/workflows/publication-policy.yml'
+      - '.github/workflows/weapon-editor-public.yml'
+      - '.github/workflows/verify-experimental-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-policy:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout public candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Validate machine-readable generator-validator contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          policy = json.loads(Path('release-policy.json').read_text(encoding='utf-8'))
+
+          required_evidence = {
+              'SOURCE/TEXT',
+              'SCHEMA',
+              'STATIC-SEMANTIC',
+              'ENGINE-AUTHORITATIVE',
+              'RUNTIME/BEHAVIORAL',
+          }
+          observed = set(policy.get('evidence_classes', []))
+          if observed != required_evidence:
+              raise SystemExit(f'evidence classes changed unexpectedly: {sorted(observed)!r}')
+
+          source = policy.get('source', {})
+          release = policy.get('release', {})
+          evidence = policy.get('evidence_rules', {})
+
+          checks = {
+              'public commit source required': source.get('must_originate_from_public_commit') is True,
+              'private repo archives forbidden': source.get('private_repository_archives_allowed') is False,
+              'source snapshot required': source.get('release_source_snapshot_required') is True,
+              'source/binary commit match required': source.get('source_binary_commit_match_required') is True,
+              'manifest required': release.get('manifest_required') is True,
+              'SHA-256 required': release.get('sha256_required') is True,
+              'public verifier required': release.get('independent_public_verification_required') is True,
+              'governed private-to-public lineage required': release.get('governed_private_to_public_lineage_required_for_publication') is True,
+              'expected promotion receipt kind': release.get('promotion_receipt_kind') == 'oxce-mod-studio-public-release-receipt',
+              'structural receipt assurance mode': release.get('promotion_receipt_assurance_mode') == 'structural-hash-commitment',
+              'receipt not falsely claimed cryptographically signed': release.get('promotion_receipt_cryptographically_signed') is False,
+              'publication without receipt forbidden': release.get('publication_without_valid_promotion_receipt_allowed') is False,
+              'transitional build/test without receipt allowed': release.get('transitional_build_test_without_promotion_receipt_allowed') is True,
+              'rolling tag not immutable package version': release.get('mutable_channel_is_immutable_package_version') is False,
+              'no evidence-layer promotion': evidence.get('lower_layer_may_claim_higher_layer') is False,
+              'OXCE engine authority': evidence.get('engine_authority') == 'OXCE',
+          }
+          failed = [name for name, ok in checks.items() if not ok]
+          if failed:
+              raise SystemExit('publication policy invariant failure: ' + ', '.join(failed))
+
+          if not policy.get('private_by_default_value_categories'):
+              raise SystemExit('private-by-default value category list is empty')
+
+          for required_file in ('README.md', 'AGENTS.md'):
+              text = Path(required_file).read_text(encoding='utf-8')
+              if 'generator' not in text.lower() or 'validator' not in text.lower():
+                  raise SystemExit(f'{required_file} no longer documents generator-validator boundary')
+
+          release_workflow = Path('.github/workflows/weapon-editor-public.yml').read_text(encoding='utf-8')
+          action_refs = re.findall(r'uses:\s+(actions/[A-Za-z0-9_.-]+)@([^\s#]+)', release_workflow)
+          floating = [(name, ref) for name, ref in action_refs if not re.fullmatch(r'[0-9a-fA-F]{40}', ref)]
+          if floating:
+              raise SystemExit('release workflow contains non-immutable official Action refs: ' + repr(floating))
+
+          reviewed_action_pins = {
+              'actions/checkout': '3d3c42e5aac5ba805825da76410c181273ba90b1',  # v7.0.1
+              'actions/setup-node': '820762786026740c76f36085b0efc47a31fe5020',  # v7.0.0
+              'actions/upload-artifact': '043fb46d1a93c77aae656e7c1c64a875d1fc6a0a',  # v7.0.1
+              'actions/download-artifact': '3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c',  # v8.0.1
+          }
+          observed_by_action = {}
+          for name, ref in action_refs:
+              observed_by_action.setdefault(name, set()).add(ref.lower())
+          for name, expected in reviewed_action_pins.items():
+              observed_refs = observed_by_action.get(name, set())
+              if observed_refs != {expected}:
+                  raise SystemExit(f'{name} release-workflow pin changed without publication-policy review: {sorted(observed_refs)!r}')
+
+          print('publication policy contract validated')
+          print('governed promotion-lineage release invariants validated')
+          print('release-sensitive official Action refs are immutable and match reviewed pins')
+          PY
+
+      - name: Verify public publisher source-origin contract is still present
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'git archive' .github/workflows/weapon-editor-public.yml
+          grep -Fq 'exact-public-candidate-commit' .github/workflows/weapon-editor-public.yml
+          grep -Fq 'private_validator_assets_included' .github/workflows/weapon-editor-public.yml
+          grep -Fq 'STRICT_VERIFIER="packages/weapon-editor/scripts/verify-public-receipt-strict.mjs"' .github/workflows/weapon-editor-public.yml
+          grep -Fq 'needs.verify-promotion-lineage.outputs.authorized' .github/workflows/weapon-editor-public.yml
+          grep -Fq 'Verify public release without credentials' .github/workflows/verify-experimental-release.yml

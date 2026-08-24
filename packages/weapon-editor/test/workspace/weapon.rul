@@ -1,0 +1,7 @@
+# Ordinary OXCE ruleset source used by the Mod Studio MVP acceptance path.
+# It intentionally updates existing xcom1 definitions so no new binary assets are required.
+items:
+  - type: STR_PISTOL
+    accuracySnap: 61
+  - type: STR_PISTOL_CLIP
+    costBuy: 25

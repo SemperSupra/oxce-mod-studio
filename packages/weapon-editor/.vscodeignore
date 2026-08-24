@@ -1,0 +1,5 @@
+src/**
+test/**
+node_modules/**
+dist/web-test.js
+*.vsix

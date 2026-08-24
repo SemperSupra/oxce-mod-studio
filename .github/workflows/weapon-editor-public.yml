@@ -1,0 +1,319 @@
+name: OXCE Mod Studio public weapon candidate
+
+on:
+  push:
+    branches:
+      - semper/weapon-editor-exp
+    paths:
+      - 'packages/weapon-editor/**'
+      - 'spikes/ruleset-tools-web/**'
+      - 'promotion-manifest.json'
+      - '.github/workflows/weapon-editor-public.yml'
+  pull_request:
+    paths:
+      - 'packages/weapon-editor/**'
+      - 'spikes/ruleset-tools-web/**'
+      - 'promotion-manifest.json'
+      - '.github/workflows/weapon-editor-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  STUDIO_VERSION: '0.0.1'
+  EXPERIMENTAL_TAG: studio-exp-current
+  RULESET_TOOLS_SHA: '089e560e60819ec0b35d834f0b6dc65b5ea76d06'
+  VSCODE_YAML_SHA: '85e1754a4e71b54f0f49ddddcbdecb50b9abbe6b'
+
+jobs:
+  build-test-package:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+    steps:
+      - name: Checkout public candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Checkout pinned Ruleset Tools upstream
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: OpenXcom/vscode-ruleset
+          ref: 089e560e60819ec0b35d834f0b6dc65b5ea76d06
+          path: .upstream/vscode-ruleset
+
+      - name: Checkout pinned Red Hat YAML web dependency
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: redhat-developer/vscode-yaml
+          ref: 85e1754a4e71b54f0f49ddddcbdecb50b9abbe6b
+          path: .upstream/vscode-yaml
+
+      - name: Set up Node 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+
+      - name: Verify pinned provider SHAs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C .upstream/vscode-ruleset rev-parse HEAD)" = "$RULESET_TOOLS_SHA"
+          test "$(git -C .upstream/vscode-yaml rev-parse HEAD)" = "$VSCODE_YAML_SHA"
+          node -e "const p=require('./.upstream/vscode-yaml/package.json'); if(p.version!=='1.24.0'||!p.browser) process.exit(1); console.log('redhat.vscode-yaml', p.version, p.browser)"
+
+      - name: Install exact Studio dependencies
+        working-directory: packages/weapon-editor
+        run: npm install --no-audit --no-fund
+
+      - name: Run source-fidelity contract
+        working-directory: packages/weapon-editor
+        run: npm test
+
+      - name: Build browser extension
+        working-directory: packages/weapon-editor
+        run: npm run build:web
+
+      - name: Build VS Code Web test bundle
+        working-directory: packages/weapon-editor
+        run: npm run build:web-test
+
+      - name: Install Chromium for VS Code Web
+        working-directory: packages/weapon-editor
+        run: npx --no-install playwright install --with-deps chromium
+
+      - name: Exercise extension in real VS Code Web host
+        working-directory: packages/weapon-editor
+        run: npm run test:web
+
+      - name: Build pinned Ruleset Tools schema/provider
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --prefix .upstream/vscode-ruleset
+          (cd .upstream/vscode-ruleset && node build/index.js)
+          node spikes/ruleset-tools-web/localize-schema-refs.mjs .upstream/vscode-ruleset/schemas/oxce
+          node spikes/ruleset-tools-web/prepare-upstream.mjs .upstream/vscode-ruleset
+          "$GITHUB_WORKSPACE/packages/weapon-editor/node_modules/.bin/esbuild" \
+            .upstream/vscode-ruleset/src/extension.ts \
+            --bundle \
+            --platform=browser \
+            --format=cjs \
+            --external:vscode \
+            --outfile=.upstream/vscode-ruleset/dist/web/extension.js
+
+      - name: Build pinned Red Hat YAML web extension
+        working-directory: .upstream/vscode-yaml
+        run: |
+          npm ci
+          npm run compile
+
+      - name: Build real-provider integration test
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$GITHUB_WORKSPACE/packages/weapon-editor/node_modules/.bin/esbuild" \
+            packages/weapon-editor/test/provider-web-test.mjs \
+            --bundle \
+            --platform=browser \
+            --format=cjs \
+            --external:vscode \
+            --outfile=packages/weapon-editor/dist/provider-web-test.js
+
+      - name: Exercise Studio with pinned real browser providers
+        working-directory: packages/weapon-editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --no-install vscode-test-web \
+            --quality=stable \
+            --browserType=chromium \
+            --headless \
+            --verbose \
+            --printServerLog \
+            --extensionDevelopmentPath=. \
+            --extensionTestsPath=dist/provider-web-test.js \
+            --extensionPath="$GITHUB_WORKSPACE/.upstream/vscode-yaml" \
+            --extensionPath="$GITHUB_WORKSPACE/.upstream/vscode-ruleset" \
+            "$GITHUB_WORKSPACE/packages/weapon-editor/test/workspace"
+
+      - name: Package experimental VSIX
+        working-directory: packages/weapon-editor
+        run: npm run package:vsix
+
+      - name: Stage provenance-named public artifact
+        working-directory: packages/weapon-editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHORT_SHA="${CANDIDATE_SHA:0:8}"
+          mkdir -p dist/public
+          PUBLIC_NAME="oxce-mod-studio-experimental-${STUDIO_VERSION}-g${SHORT_SHA}.vsix"
+          cp "dist/oxce-mod-studio-${STUDIO_VERSION}.vsix" "dist/public/${PUBLIC_NAME}"
+          sha256sum "dist/public/${PUBLIC_NAME}" | tee dist/public/SHA256SUMS.txt
+          python - <<'PY'
+          import hashlib, json, os, pathlib
+          root = pathlib.Path('dist/public')
+          vsix = next(root.glob('*.vsix'))
+          digest = hashlib.sha256(vsix.read_bytes()).hexdigest()
+          candidate = os.environ['CANDIDATE_SHA']
+          manifest = {
+              'schema': 1,
+              'channel': os.environ['EXPERIMENTAL_TAG'],
+              'status': 'experimental',
+              'official_studio': False,
+              'source': {
+                  'repository': 'SemperSupra/oxce-mod-studio',
+                  'branch': 'semper/weapon-editor-exp',
+                  'commit': candidate,
+              },
+              'providers': {
+                  'ruleset_tools': os.environ['RULESET_TOOLS_SHA'],
+                  'redhat_yaml': os.environ['VSCODE_YAML_SHA'],
+              },
+              'artifact': {
+                  'kind': 'vsix',
+                  'filename': vsix.name,
+                  'sha256': digest,
+              },
+              'evidence': {
+                  'source_fidelity': 'passed-in-workflow',
+                  'vscode_web_host': 'passed-in-workflow',
+                  'real_provider_integration': 'passed-in-workflow',
+                  'vsix_packaging': 'passed-in-workflow',
+              },
+          }
+          (root / 'experimental-build-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+          PY
+
+      - name: Upload public candidate artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: public-studio-weapon-candidate
+          path: packages/weapon-editor/dist/public/*
+          if-no-files-found: error
+
+  verify-promotion-lineage:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/semper/weapon-editor-exp'
+    runs-on: ubuntu-22.04
+    outputs:
+      authorized: ${{ steps.receipt.outputs.authorized }}
+
+    steps:
+      - name: Checkout exact public candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Verify governed promotion receipt when present
+        id: receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          MANIFEST="promotion-manifest.json"
+          STRICT_VERIFIER="packages/weapon-editor/scripts/verify-public-receipt-strict.mjs"
+          VERIFIER="packages/weapon-editor/scripts/verify-public-receipt.mjs"
+          if [[ ! -f "$MANIFEST" || ! -f "$STRICT_VERIFIER" || ! -f "$VERIFIER" ]]; then
+            echo "authorized=false" >> "$GITHUB_OUTPUT"
+            echo "No governed promotion receipt/verifier is present on this transitional public commit; build/test remains allowed but publication is disabled."
+            exit 0
+          fi
+          node "$STRICT_VERIFIER" --manifest "$MANIFEST" | tee promotion-receipt-verification.json
+          echo "authorized=true" >> "$GITHUB_OUTPUT"
+
+  publish-rolling-experimental:
+    needs:
+      - build-test-package
+      - verify-promotion-lineage
+    if: github.event_name == 'push' && github.ref == 'refs/heads/semper/weapon-editor-exp' && needs.verify-promotion-lineage.outputs.authorized == 'true'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CANDIDATE_SHA: ${{ github.sha }}
+
+    steps:
+      - name: Checkout exact public candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Download validated package
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: public-studio-weapon-candidate
+          path: dist
+
+      - name: Generate sanitized public source archive and release hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          SHORT_SHA="${CANDIDATE_SHA:0:8}"
+          SOURCE_NAME="oxce-mod-studio-experimental-${STUDIO_VERSION}-g${SHORT_SHA}-source.zip"
+          git archive \
+            --format=zip \
+            --prefix="oxce-mod-studio-g${SHORT_SHA}/" \
+            --output="dist/${SOURCE_NAME}" \
+            "$CANDIDATE_SHA"
+
+          python - <<'PY'
+          import hashlib, json, os, pathlib
+
+          root = pathlib.Path('dist')
+          manifest_path = root / 'experimental-build-manifest.json'
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          candidate = os.environ['CANDIDATE_SHA']
+          short = candidate[:8]
+          source = root / f"oxce-mod-studio-experimental-{os.environ['STUDIO_VERSION']}-g{short}-source.zip"
+
+          def digest(path):
+              h = hashlib.sha256()
+              with path.open('rb') as fh:
+                  for chunk in iter(lambda: fh.read(1024 * 1024), b''):
+                      h.update(chunk)
+              return h.hexdigest()
+
+          manifest['source_archive'] = {
+              'kind': 'public-source-snapshot',
+              'filename': source.name,
+              'sha256': digest(source),
+              'commit': candidate,
+              'origin': 'exact-public-candidate-commit',
+              'private_validator_assets_included': False,
+          }
+          manifest_path.write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+
+          checksum_lines = []
+          for path in sorted(p for p in root.iterdir() if p.is_file() and p.name != 'SHA256SUMS.txt'):
+              checksum_lines.append(f"{digest(path)}  {path.name}")
+          (root / 'SHA256SUMS.txt').write_text('\n'.join(checksum_lines) + '\n', encoding='utf-8')
+          PY
+
+      - name: Move rolling experimental tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          git tag -f "$EXPERIMENTAL_TAG" "$CANDIDATE_SHA"
+          git push origin "refs/tags/$EXPERIMENTAL_TAG" --force
+
+      - name: Publish rolling experimental prerelease
+        shell: bash
+        run: |
+          set -euo pipefail
+          TITLE="UNOFFICIAL — OXCE Mod Studio Experimental Weapon Editor"
+          NOTES=$'Experimental development build of OXCE Mod Studio.\n\nThis is not a stable release. The VSIX has passed source-fidelity tests, browser bundling, a real headless VS Code Web/Chromium activation-and-edit test, pinned Ruleset Tools + Red Hat YAML provider integration, packaging, and the governed public promotion receipt gate when publication is enabled.\n\nThe release includes a source snapshot generated from the exact sanitized public candidate commit. Private validator/evaluator corpora, research, adversarial knowledge, and other private control-plane assets are not release inputs and are not included.\n\nCanonical source remains authoritative. Browser diagnostics are labeled separately from OXCE engine-authoritative evidence.'
+          if gh release view "$EXPERIMENTAL_TAG" >/dev/null 2>&1; then
+            while IFS= read -r asset; do
+              [ -z "$asset" ] || gh release delete-asset "$EXPERIMENTAL_TAG" "$asset" -y
+            done < <(gh release view "$EXPERIMENTAL_TAG" --json assets --jq '.assets[].name')
+            gh release edit "$EXPERIMENTAL_TAG" --prerelease --title "$TITLE" --notes "$NOTES"
+          else
+            gh release create "$EXPERIMENTAL_TAG" --prerelease --title "$TITLE" --notes "$NOTES"
+          fi
+          gh release upload "$EXPERIMENTAL_TAG" dist/* --clobber

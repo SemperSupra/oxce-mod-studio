@@ -1,0 +1,7 @@
+name: "SemperSupra Studio MVP Weapon Fixture"
+version: "0.1.0"
+requiredExtendedVersion: "8.6"
+author: "SemperSupra"
+description: "Synthetic source-preserving weapon/ammo/localization fixture for the OXCE Mod Studio MVP."
+id: sempersupra-studio-mvp
+master: xcom1

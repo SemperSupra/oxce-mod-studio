@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "project": "SemperSupra/oxce-mod-studio",
+  "role": "public-product-generator-plane",
+  "source": {
+    "must_originate_from_public_commit": true,
+    "private_repository_archives_allowed": false,
+    "release_source_snapshot_required": true,
+    "source_binary_commit_match_required": true
+  },
+  "release": {
+    "manifest_required": true,
+    "sha256_required": true,
+    "independent_public_verification_required": true,
+    "governed_private_to_public_lineage_required_for_publication": true,
+    "promotion_receipt_kind": "oxce-mod-studio-public-release-receipt",
+    "promotion_receipt_assurance_mode": "structural-hash-commitment",
+    "promotion_receipt_cryptographically_signed": false,
+    "publication_without_valid_promotion_receipt_allowed": false,
+    "transitional_build_test_without_promotion_receipt_allowed": true,
+    "mutable_experimental_channel": "studio-exp-current",
+    "mutable_channel_is_immutable_package_version": false
+  },
+  "evidence_classes": [
+    "SOURCE/TEXT",
+    "SCHEMA",
+    "STATIC-SEMANTIC",
+    "ENGINE-AUTHORITATIVE",
+    "RUNTIME/BEHAVIORAL"
+  ],
+  "evidence_rules": {
+    "lower_layer_may_claim_higher_layer": false,
+    "engine_authority": "OXCE"
+  },
+  "private_by_default_value_categories": [
+    "comprehensive-conformance-corpus",
+    "adversarial-negative-regression-corpus",
+    "curated-domain-ontology-knowledge",
+    "fuzz-mutation-coverage-knowledge",
+    "golden-oracle-expectations",
+    "compatibility-failure-fingerprints",
+    "evaluator-scoring-triage-heuristics",
+    "private-red-team-findings",
+    "private-validation-provenance"
+  ],
+  "classification_note": "Public/private classification is semantic and governance-driven; file type or path name alone is not sufficient.",
+  "public_test_purpose": "Prove the public product/build/integration contract without requiring publication of the comprehensive private validator corpus."
+}

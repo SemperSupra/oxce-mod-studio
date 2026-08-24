@@ -1,0 +1,79 @@
+name: Sanitized cross-platform weapon-editor smoke
+
+on:
+  push:
+    branches:
+      - semper/weapon-editor-exp
+    paths:
+      - 'packages/weapon-editor/**'
+      - 'examples/mvp-weapon-mod/**'
+      - '.github/workflows/sanitized-cross-platform-smoke.yml'
+  pull_request:
+    paths:
+      - 'packages/weapon-editor/**'
+      - 'examples/mvp-weapon-mod/**'
+      - '.github/workflows/sanitized-cross-platform-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-smoke:
+    name: source-smoke (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout sanitized public candidate
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install weapon-editor dependencies without scripts
+        working-directory: packages/weapon-editor
+        run: npm install --package-lock=false --ignore-scripts --no-audit --no-fund
+
+      - name: Run source-fidelity and engine-evidence unit contract
+        working-directory: packages/weapon-editor
+        run: npm test
+
+      - name: Build browser extension
+        working-directory: packages/weapon-editor
+        run: npm run build:web
+
+      - name: Require sanitized MVP fixture only
+        shell: bash
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          test -s examples/mvp-weapon-mod/metadata.yml
+          test -s examples/mvp-weapon-mod/Ruleset/weapon.rul
+          test -s examples/mvp-weapon-mod/Language/en-US.yml
+          test ! -e examples/mvp-weapon-mod/README.md
+
+      - name: Require sanitized MVP fixture only (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $required = @(
+            'examples/mvp-weapon-mod/metadata.yml',
+            'examples/mvp-weapon-mod/Ruleset/weapon.rul',
+            'examples/mvp-weapon-mod/Language/en-US.yml'
+          )
+          foreach ($path in $required) {
+            if (-not (Test-Path $path -PathType Leaf)) { throw "missing required fixture file: $path" }
+            if ((Get-Item $path).Length -eq 0) { throw "empty required fixture file: $path" }
+          }
+          if (Test-Path 'examples/mvp-weapon-mod/README.md') {
+            throw 'private fixture README must not be present in sanitized public candidate'
+          }
