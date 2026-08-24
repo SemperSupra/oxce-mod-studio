@@ -35,24 +35,24 @@ jobs:
 
     steps:
       - name: Checkout public candidate
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Checkout pinned Ruleset Tools upstream
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: OpenXcom/vscode-ruleset
           ref: 089e560e60819ec0b35d834f0b6dc65b5ea76d06
           path: .upstream/vscode-ruleset
 
       - name: Checkout pinned Red Hat YAML web dependency
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: redhat-developer/vscode-yaml
           ref: 85e1754a4e71b54f0f49ddddcbdecb50b9abbe6b
           path: .upstream/vscode-yaml
 
       - name: Set up Node 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '22'
 
@@ -189,7 +189,7 @@ jobs:
           PY
 
       - name: Upload public candidate artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: public-studio-weapon-candidate
           path: packages/weapon-editor/dist/public/*
@@ -203,7 +203,7 @@ jobs:
 
     steps:
       - name: Checkout exact public candidate
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           ref: ${{ github.sha }}
@@ -214,13 +214,14 @@ jobs:
         run: |
           set -euo pipefail
           MANIFEST="promotion-manifest.json"
+          STRICT_VERIFIER="packages/weapon-editor/scripts/verify-public-receipt-strict.mjs"
           VERIFIER="packages/weapon-editor/scripts/verify-public-receipt.mjs"
-          if [[ ! -f "$MANIFEST" || ! -f "$VERIFIER" ]]; then
+          if [[ ! -f "$MANIFEST" || ! -f "$STRICT_VERIFIER" || ! -f "$VERIFIER" ]]; then
             echo "authorized=false" >> "$GITHUB_OUTPUT"
             echo "No governed promotion receipt/verifier is present on this transitional public commit; build/test remains allowed but publication is disabled."
             exit 0
           fi
-          node "$VERIFIER" --manifest "$MANIFEST" | tee promotion-receipt-verification.json
+          node "$STRICT_VERIFIER" --manifest "$MANIFEST" | tee promotion-receipt-verification.json
           echo "authorized=true" >> "$GITHUB_OUTPUT"
 
   publish-rolling-experimental:
@@ -237,13 +238,13 @@ jobs:
 
     steps:
       - name: Checkout exact public candidate
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           ref: ${{ github.sha }}
 
       - name: Download validated package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: public-studio-weapon-candidate
           path: dist
