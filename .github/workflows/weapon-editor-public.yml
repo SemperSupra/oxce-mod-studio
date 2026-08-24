@@ -7,11 +7,13 @@ on:
     paths:
       - 'packages/weapon-editor/**'
       - 'spikes/ruleset-tools-web/**'
+      - 'promotion-manifest.json'
       - '.github/workflows/weapon-editor-public.yml'
   pull_request:
     paths:
       - 'packages/weapon-editor/**'
       - 'spikes/ruleset-tools-web/**'
+      - 'promotion-manifest.json'
       - '.github/workflows/weapon-editor-public.yml'
   workflow_dispatch:
 
@@ -193,9 +195,39 @@ jobs:
           path: packages/weapon-editor/dist/public/*
           if-no-files-found: error
 
-  publish-rolling-experimental:
-    needs: build-test-package
+  verify-promotion-lineage:
     if: github.event_name == 'push' && github.ref == 'refs/heads/semper/weapon-editor-exp'
+    runs-on: ubuntu-22.04
+    outputs:
+      authorized: ${{ steps.receipt.outputs.authorized }}
+
+    steps:
+      - name: Checkout exact public candidate
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Verify governed promotion receipt when present
+        id: receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          MANIFEST="promotion-manifest.json"
+          VERIFIER="packages/weapon-editor/scripts/verify-public-receipt.mjs"
+          if [[ ! -f "$MANIFEST" || ! -f "$VERIFIER" ]]; then
+            echo "authorized=false" >> "$GITHUB_OUTPUT"
+            echo "No governed promotion receipt/verifier is present on this transitional public commit; build/test remains allowed but publication is disabled."
+            exit 0
+          fi
+          node "$VERIFIER" --manifest "$MANIFEST" | tee promotion-receipt-verification.json
+          echo "authorized=true" >> "$GITHUB_OUTPUT"
+
+  publish-rolling-experimental:
+    needs:
+      - build-test-package
+      - verify-promotion-lineage
+    if: github.event_name == 'push' && github.ref == 'refs/heads/semper/weapon-editor-exp' && needs.verify-promotion-lineage.outputs.authorized == 'true'
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -274,7 +306,7 @@ jobs:
         run: |
           set -euo pipefail
           TITLE="UNOFFICIAL — OXCE Mod Studio Experimental Weapon Editor"
-          NOTES=$'Experimental development build of OXCE Mod Studio.\n\nThis is not a stable release. The VSIX has passed source-fidelity tests, browser bundling, a real headless VS Code Web/Chromium activation-and-edit test, pinned Ruleset Tools + Red Hat YAML provider integration, and packaging in this public workflow.\n\nThe release includes a source snapshot generated from the exact sanitized public candidate commit. Private validator/evaluator corpora, research, adversarial knowledge, and other private control-plane assets are not release inputs and are not included.\n\nCanonical source remains authoritative. Browser diagnostics are labeled separately from OXCE engine-authoritative evidence.'
+          NOTES=$'Experimental development build of OXCE Mod Studio.\n\nThis is not a stable release. The VSIX has passed source-fidelity tests, browser bundling, a real headless VS Code Web/Chromium activation-and-edit test, pinned Ruleset Tools + Red Hat YAML provider integration, packaging, and the governed public promotion receipt gate when publication is enabled.\n\nThe release includes a source snapshot generated from the exact sanitized public candidate commit. Private validator/evaluator corpora, research, adversarial knowledge, and other private control-plane assets are not release inputs and are not included.\n\nCanonical source remains authoritative. Browser diagnostics are labeled separately from OXCE engine-authoritative evidence.'
           if gh release view "$EXPERIMENTAL_TAG" >/dev/null 2>&1; then
             while IFS= read -r asset; do
               [ -z "$asset" ] || gh release delete-asset "$EXPERIMENTAL_TAG" "$asset" -y
