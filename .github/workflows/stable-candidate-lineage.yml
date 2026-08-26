@@ -1,0 +1,72 @@
+name: Verify stable candidate lineage
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'packages/weapon-editor/**'
+      - 'spikes/ruleset-tools-web/**'
+      - 'examples/mvp-weapon-mod/**'
+      - 'promotion-manifest.json'
+      - 'release-policy.json'
+      - '.github/workflows/stable-candidate-lineage.yml'
+      - '.github/workflows/weapon-editor-public.yml'
+      - '.github/workflows/publication-policy.yml'
+      - '.github/workflows/verify-experimental-release.yml'
+      - '.github/workflows/sanitized-cross-platform-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stable-candidate-lineage:
+    name: stable-candidate-lineage
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'release-candidate/')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+
+    steps:
+      - name: Checkout exact release-candidate head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Require exact current main parent and unchanged release controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          PARENT="$(git rev-parse "${CANDIDATE_SHA}^")"
+          if [[ "$PARENT" != "$BASE_SHA" ]]; then
+            echo "Stable candidate parent ${PARENT} does not equal current PR main base ${BASE_SHA}; regenerate the governed projection and receipt." >&2
+            exit 1
+          fi
+
+          mapfile -t CHANGED < <(git diff --name-only "$PARENT" "$CANDIDATE_SHA")
+          for FILE in "${CHANGED[@]}"; do
+            case "$FILE" in
+              release-policy.json|.github/workflows/stable-candidate-lineage.yml|.github/workflows/publication-policy.yml|.github/workflows/weapon-editor-public.yml|.github/workflows/verify-experimental-release.yml|.github/workflows/sanitized-cross-platform-smoke.yml)
+                echo "Stable candidate changes release-control file ${FILE}; land and validate control changes separately before generating the governed candidate." >&2
+                exit 1
+                ;;
+            esac
+          done
+
+      - name: Verify exact governed stable-candidate lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          MANIFEST="promotion-manifest.json"
+          STRICT_VERIFIER="packages/weapon-editor/scripts/verify-public-receipt-strict.mjs"
+          VERIFIER="packages/weapon-editor/scripts/verify-public-receipt.mjs"
+          test -s "$MANIFEST"
+          test -s "$STRICT_VERIFIER"
+          test -s "$VERIFIER"
+          node "$STRICT_VERIFIER" --manifest "$MANIFEST" | tee stable-candidate-receipt-verification.json
