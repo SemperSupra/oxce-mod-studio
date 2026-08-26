@@ -133,7 +133,7 @@ jobs:
           set -euo pipefail
           npx --no-install vscode-test-web \
             --quality=stable \
-            --browserType=chromium \
+            --browser chromium \
             --headless \
             --verbose \
             --printServerLog \
@@ -266,7 +266,7 @@ jobs:
           mapfile -t CHANGED < <(git diff --name-only "$PARENT" "$CANDIDATE_SHA")
           for FILE in "${CHANGED[@]}"; do
             case "$FILE" in
-              release-policy.json|.github/workflows/publication-policy.yml|.github/workflows/weapon-editor-public.yml|.github/workflows/verify-experimental-release.yml|.github/workflows/sanitized-cross-platform-smoke.yml)
+              release-policy.json|.github/workflows/publication-policy.yml|.github/workflows/weapon-editor-public.yml|.github/workflows/verify-experimental-release.yml|.github/workflows/sanitized-cross-platform-smoke.yml|.github/workflows/stable-candidate-lineage.yml|.github/workflows/verify-no-publication-mutation.yml|.github/scripts/verify-rolling-release-state.mjs|.github/evidence/72-pre-hardening-rolling-state.json)
                 echo "Candidate changes release-control file ${FILE}; land and validate control changes separately before a subsequent governed publication candidate." >&2
                 exit 1
                 ;;
