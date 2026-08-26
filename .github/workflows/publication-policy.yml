@@ -17,6 +17,9 @@ on:
       - 'README.md'
       - 'AGENTS.md'
       - 'release-policy.json'
+      - 'packages/weapon-editor/**'
+      - 'spikes/ruleset-tools-web/**'
+      - 'promotion-manifest.json'
       - '.github/workflows/publication-policy.yml'
       - '.github/workflows/weapon-editor-public.yml'
       - '.github/workflows/verify-experimental-release.yml'
@@ -160,6 +163,10 @@ jobs:
               'release-control self-change refusal': 'Candidate changes release-control file',
               'pre-mutation freshness recheck': 'Recheck current branch tip before mutation',
               'publisher push-only guard': "if: github.event_name == 'push' && github.ref == 'refs/heads/semper/weapon-editor-exp' && needs.verify-promotion-lineage.outputs.authorized == 'true'",
+              'stable lineage job': 'stable-candidate-lineage:',
+              'stable lineage exact PR head': 'CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}',
+              'stable lineage release-candidate scope': "startsWith(github.head_ref, 'release-candidate/')",
+              'stable lineage strict verifier': 'Verify exact governed stable-candidate lineage',
           }
           missing_controls = [name for name, marker in required_release_controls.items() if marker not in release_workflow]
           if missing_controls:
@@ -170,6 +177,7 @@ jobs:
           print('all release-assurance official Action refs are immutable and match reviewed pins')
           print('rolling publisher serialization/freshness/control-change guards validated')
           print('Class U/Class P trigger, runner, cache, and credential-persistence invariants validated')
+          print('stable release-candidate exact-SHA lineage exposure validated')
           PY
 
       - name: Verify public publisher source-origin contract is still present
@@ -183,4 +191,5 @@ jobs:
           grep -Fq 'needs.verify-promotion-lineage.outputs.authorized' .github/workflows/weapon-editor-public.yml
           grep -Fq 'group: studio-exp-rolling-publisher' .github/workflows/weapon-editor-public.yml
           grep -Fq 'Candidate changes release-control file' .github/workflows/weapon-editor-public.yml
+          grep -Fq 'stable-candidate-lineage' .github/workflows/weapon-editor-public.yml
           grep -Fq 'Verify public release without credentials' .github/workflows/verify-experimental-release.yml
