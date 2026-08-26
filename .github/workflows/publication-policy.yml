@@ -12,6 +12,7 @@ on:
       - '.github/workflows/weapon-editor-public.yml'
       - '.github/workflows/verify-experimental-release.yml'
       - '.github/workflows/sanitized-cross-platform-smoke.yml'
+      - '.github/workflows/stable-candidate-lineage.yml'
   pull_request:
     paths:
       - 'README.md'
@@ -24,6 +25,7 @@ on:
       - '.github/workflows/weapon-editor-public.yml'
       - '.github/workflows/verify-experimental-release.yml'
       - '.github/workflows/sanitized-cross-platform-smoke.yml'
+      - '.github/workflows/stable-candidate-lineage.yml'
   workflow_dispatch:
 
 permissions:
@@ -103,6 +105,7 @@ jobs:
               Path('.github/workflows/weapon-editor-public.yml'),
               Path('.github/workflows/verify-experimental-release.yml'),
               Path('.github/workflows/sanitized-cross-platform-smoke.yml'),
+              Path('.github/workflows/stable-candidate-lineage.yml'),
           ]
           release_action_refs = {}
           for workflow in assurance_workflows:
@@ -126,6 +129,7 @@ jobs:
                   raise SystemExit(f'{name} release-workflow pin missing/changed: {sorted(observed_refs)!r}')
 
           release_workflow = Path('.github/workflows/weapon-editor-public.yml').read_text(encoding='utf-8')
+          stable_workflow = Path('.github/workflows/stable-candidate-lineage.yml').read_text(encoding='utf-8')
           required_release_controls = {
               'serialized rolling publisher': 'group: studio-exp-rolling-publisher',
               'publisher queue is not cancel-and-rewind': 'cancel-in-progress: false',
@@ -137,10 +141,25 @@ jobs:
           if missing_controls:
               raise SystemExit('release workflow lost publication hardening controls: ' + ', '.join(missing_controls))
 
+          required_stable_controls = {
+              'stable check context': 'stable-candidate-lineage',
+              'release-candidate scope': "startsWith(github.head_ref, 'release-candidate/')",
+              'exact PR head': 'CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}',
+              'exact PR base': 'BASE_SHA: ${{ github.event.pull_request.base.sha }}',
+              'no persisted checkout credentials': 'persist-credentials: false',
+              'current-main direct parent': 'does not equal current PR main base',
+              'stable release-control refusal': 'Stable candidate changes release-control file',
+              'strict receipt verification': 'Verify exact governed stable-candidate lineage',
+          }
+          missing_stable = [name for name, marker in required_stable_controls.items() if marker not in stable_workflow]
+          if missing_stable:
+              raise SystemExit('stable candidate workflow lost controls: ' + ', '.join(missing_stable))
+
           print('publication policy contract validated')
           print('governed promotion-lineage release invariants validated')
           print('all release-assurance official Action refs are immutable and match reviewed pins')
           print('rolling publisher serialization/freshness/control-change guards validated')
+          print('stable candidate exact-SHA/current-main/control-change guards validated')
           PY
 
       - name: Verify public publisher source-origin contract is still present
@@ -154,4 +173,6 @@ jobs:
           grep -Fq 'needs.verify-promotion-lineage.outputs.authorized' .github/workflows/weapon-editor-public.yml
           grep -Fq 'group: studio-exp-rolling-publisher' .github/workflows/weapon-editor-public.yml
           grep -Fq 'Candidate changes release-control file' .github/workflows/weapon-editor-public.yml
+          grep -Fq 'stable-candidate-lineage' .github/workflows/stable-candidate-lineage.yml
+          grep -Fq 'Verify exact governed stable-candidate lineage' .github/workflows/stable-candidate-lineage.yml
           grep -Fq 'Verify public release without credentials' .github/workflows/verify-experimental-release.yml
