@@ -120,10 +120,10 @@ jobs:
           set -euo pipefail
           "$GITHUB_WORKSPACE/packages/weapon-editor/node_modules/.bin/esbuild" \
             packages/weapon-editor/test/provider-web-test.mjs \
-            --bundle
-            --platform=browser
-            --format=cjs
-            --external:vscode
+            --bundle \
+            --platform=browser \
+            --format=cjs \
+            --external:vscode \
             --outfile=packages/weapon-editor/dist/provider-web-test.js
 
       - name: Exercise Studio with pinned real browser providers
