@@ -21,6 +21,20 @@
     "mutable_experimental_channel": "studio-exp-current",
     "mutable_channel_is_immutable_package_version": false
   },
+  "licensing": {
+    "project_license_spdx": "Apache-2.0",
+    "root_license_path": "LICENSE",
+    "root_notice_path": "NOTICE",
+    "third_party_notices_path": "THIRD_PARTY_NOTICES",
+    "package_license_must_match_project": true,
+    "distributed_package_notice_files": [
+      "LICENSE",
+      "NOTICE",
+      "THIRD_PARTY_NOTICES"
+    ],
+    "third_party_distribution_revalidation_required_on_shape_change": true,
+    "private_development_repository_covered_by_public_license": false
+  },
   "evidence_classes": [
     "SOURCE/TEXT",
     "SCHEMA",
