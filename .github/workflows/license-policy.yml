@@ -15,6 +15,7 @@ on:
       - 'packages/weapon-editor/THIRD_PARTY_NOTICES'
       - '.github/scripts/verify-release-rights.mjs'
       - '.github/workflows/license-policy.yml'
+      - '.github/workflows/weapon-editor-public.yml'
   pull_request:
     paths:
       - 'LICENSE'
@@ -27,6 +28,7 @@ on:
       - 'packages/weapon-editor/THIRD_PARTY_NOTICES'
       - '.github/scripts/verify-release-rights.mjs'
       - '.github/workflows/license-policy.yml'
+      - '.github/workflows/weapon-editor-public.yml'
   workflow_dispatch:
 
 permissions:
@@ -44,3 +46,11 @@ jobs:
 
       - name: Validate Apache-2.0 release-rights contract
         run: node .github/scripts/verify-release-rights.mjs
+
+      - name: Verify receipt-authorized publication also requires strict package rights
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq "Verify authorized candidate Apache release rights" .github/workflows/weapon-editor-public.yml
+          grep -Fq "verify-release-rights.mjs --require-package" .github/workflows/weapon-editor-public.yml
+          grep -Fq "LICENSE|NOTICE|THIRD_PARTY_NOTICES|release-policy.json" .github/workflows/weapon-editor-public.yml
