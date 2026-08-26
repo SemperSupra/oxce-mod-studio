@@ -32,6 +32,8 @@ jobs:
     steps:
       - name: Checkout public candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Validate machine-readable generator-validator contract
         shell: bash
@@ -104,6 +106,8 @@ jobs:
           release_action_refs = {}
           for workflow in assurance_workflows:
               text = workflow.read_text(encoding='utf-8')
+              if re.search(r'(?m)^\s*pull_request_target\s*:', text):
+                  raise SystemExit(f'{workflow} must not expose candidate execution through pull_request_target')
               action_refs = re.findall(r'uses:\s+(actions/[A-Za-z0-9_.-]+)@([^\s#]+)', text)
               floating = [(name, ref) for name, ref in action_refs if not re.fullmatch(r'[0-9a-fA-F]{40}', ref)]
               if floating:
@@ -123,12 +127,30 @@ jobs:
                   raise SystemExit(f'{name} release-workflow pin missing/changed: {sorted(observed_refs)!r}')
 
           release_workflow = Path('.github/workflows/weapon-editor-public.yml').read_text(encoding='utf-8')
+          smoke_workflow = Path('.github/workflows/sanitized-cross-platform-smoke.yml').read_text(encoding='utf-8')
+          verifier_workflow = Path('.github/workflows/verify-experimental-release.yml').read_text(encoding='utf-8')
+
+          # Class U: executable PR candidate code is allowed only on disposable GitHub-hosted,
+          # read-only workflows without pull_request_target or shared mutable caches.
+          if 'pull_request:' not in release_workflow or 'pull_request:' not in smoke_workflow:
+              raise SystemExit('Class U candidate workflows lost ordinary pull_request coverage')
+          for name, text in [('weapon-editor-public.yml', release_workflow), ('sanitized-cross-platform-smoke.yml', smoke_workflow)]:
+              if 'self-hosted' in text:
+                  raise SystemExit(f'{name} must not use self-hosted runners for untrusted candidate execution')
+              if 'actions/cache@' in text or re.search(r'(?m)^\s*cache\s*:', text):
+                  raise SystemExit(f'{name} must not introduce shared writable cache state into Class U without separate review')
+          if 'persist-credentials: false' not in smoke_workflow:
+              raise SystemExit('sanitized Class U checkout must disable persisted credentials')
+          if 'persist-credentials: false' not in verifier_workflow:
+              raise SystemExit('public verifier checkout must disable persisted credentials')
+
           required_release_controls = {
               'serialized rolling publisher': 'group: studio-exp-rolling-publisher',
               'publisher queue is not cancel-and-rewind': 'cancel-in-progress: false',
               'branch freshness check': 'git ls-remote origin refs/heads/semper/weapon-editor-exp',
               'release-control self-change refusal': 'Candidate changes release-control file',
               'pre-mutation freshness recheck': 'Recheck current branch tip before mutation',
+              'publisher push-only guard': "if: github.event_name == 'push' && github.ref == 'refs/heads/semper/weapon-editor-exp' && needs.verify-promotion-lineage.outputs.authorized == 'true'",
           }
           missing_controls = [name for name, marker in required_release_controls.items() if marker not in release_workflow]
           if missing_controls:
@@ -138,6 +160,7 @@ jobs:
           print('governed promotion-lineage release invariants validated')
           print('all release-assurance official Action refs are immutable and match reviewed pins')
           print('rolling publisher serialization/freshness/control-change guards validated')
+          print('Class U/Class P trigger, runner, cache, and credential-persistence invariants validated')
           PY
 
       - name: Verify public publisher source-origin contract is still present
