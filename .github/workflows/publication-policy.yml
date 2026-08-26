@@ -12,6 +12,9 @@ on:
       - '.github/workflows/weapon-editor-public.yml'
       - '.github/workflows/verify-experimental-release.yml'
       - '.github/workflows/sanitized-cross-platform-smoke.yml'
+      - '.github/workflows/verify-no-publication-mutation.yml'
+      - '.github/scripts/verify-rolling-release-state.mjs'
+      - '.github/evidence/72-pre-hardening-rolling-state.json'
   pull_request:
     paths:
       - 'README.md'
@@ -21,6 +24,9 @@ on:
       - '.github/workflows/weapon-editor-public.yml'
       - '.github/workflows/verify-experimental-release.yml'
       - '.github/workflows/sanitized-cross-platform-smoke.yml'
+      - '.github/workflows/verify-no-publication-mutation.yml'
+      - '.github/scripts/verify-rolling-release-state.mjs'
+      - '.github/evidence/72-pre-hardening-rolling-state.json'
   workflow_dispatch:
 
 permissions:
@@ -100,6 +106,7 @@ jobs:
               Path('.github/workflows/weapon-editor-public.yml'),
               Path('.github/workflows/verify-experimental-release.yml'),
               Path('.github/workflows/sanitized-cross-platform-smoke.yml'),
+              Path('.github/workflows/verify-no-publication-mutation.yml'),
           ]
           release_action_refs = {}
           for workflow in assurance_workflows:
@@ -134,10 +141,23 @@ jobs:
           if missing_controls:
               raise SystemExit('release workflow lost publication hardening controls: ' + ', '.join(missing_controls))
 
+          negative_workflow = Path('.github/workflows/verify-no-publication-mutation.yml').read_text(encoding='utf-8')
+          negative_script = Path('.github/scripts/verify-rolling-release-state.mjs').read_text(encoding='utf-8')
+          negative_baseline = json.loads(Path('.github/evidence/72-pre-hardening-rolling-state.json').read_text(encoding='utf-8'))
+          if 'Verify no rolling publication mutation' not in negative_workflow:
+              raise SystemExit('negative publication proof workflow missing')
+          if 'verify-rolling-release-state.mjs' not in negative_workflow:
+              raise SystemExit('negative publication proof workflow no longer invokes verifier')
+          if 'ROLLING RELEASE STATE CHANGED' not in negative_script or 'download_count' in negative_script:
+              raise SystemExit('negative publication proof verifier drifted or began treating download counts as mutation')
+          if negative_baseline.get('tag') != 'studio-exp-current' or negative_baseline.get('repository') != 'SemperSupra/oxce-mod-studio':
+              raise SystemExit('negative publication proof baseline target drifted')
+
           print('publication policy contract validated')
           print('governed promotion-lineage release invariants validated')
           print('all release-assurance official Action refs are immutable and match reviewed pins')
           print('rolling publisher serialization/freshness/control-change guards validated')
+          print('negative rolling-publication proof inputs validated')
           PY
 
       - name: Verify public publisher source-origin contract is still present
@@ -152,3 +172,4 @@ jobs:
           grep -Fq 'group: studio-exp-rolling-publisher' .github/workflows/weapon-editor-public.yml
           grep -Fq 'Candidate changes release-control file' .github/workflows/weapon-editor-public.yml
           grep -Fq 'Verify public release without credentials' .github/workflows/verify-experimental-release.yml
+          grep -Fq 'Verify no rolling publication mutation' .github/workflows/verify-no-publication-mutation.yml
