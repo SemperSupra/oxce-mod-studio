@@ -33,6 +33,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.sha }}
+          persist-credentials: false
 
       - name: Wait for Studio build and publisher
         shell: bash
