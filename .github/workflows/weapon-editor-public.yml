@@ -36,6 +36,8 @@ jobs:
     steps:
       - name: Checkout public candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Checkout pinned Ruleset Tools upstream
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -43,6 +45,7 @@ jobs:
           repository: OpenXcom/vscode-ruleset
           ref: 089e560e60819ec0b35d834f0b6dc65b5ea76d06
           path: .upstream/vscode-ruleset
+          persist-credentials: false
 
       - name: Checkout pinned Red Hat YAML web dependency
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -50,6 +53,7 @@ jobs:
           repository: redhat-developer/vscode-yaml
           ref: 85e1754a4e71b54f0f49ddddcbdecb50b9abbe6b
           path: .upstream/vscode-yaml
+          persist-credentials: false
 
       - name: Set up Node 22
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -207,6 +211,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.sha }}
+          persist-credentials: false
 
       - name: Verify governed promotion receipt when present
         id: receipt
