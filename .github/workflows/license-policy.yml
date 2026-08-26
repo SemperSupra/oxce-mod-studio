@@ -13,6 +13,7 @@ on:
       - 'packages/weapon-editor/LICENSE'
       - 'packages/weapon-editor/NOTICE'
       - 'packages/weapon-editor/THIRD_PARTY_NOTICES'
+      - '.github/scripts/verify-release-rights.mjs'
       - '.github/workflows/license-policy.yml'
   pull_request:
     paths:
@@ -24,6 +25,7 @@ on:
       - 'packages/weapon-editor/LICENSE'
       - 'packages/weapon-editor/NOTICE'
       - 'packages/weapon-editor/THIRD_PARTY_NOTICES'
+      - '.github/scripts/verify-release-rights.mjs'
       - '.github/workflows/license-policy.yml'
   workflow_dispatch:
 
@@ -40,68 +42,5 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Validate Apache-2.0 and notice contract
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 <<'PY'
-          import json
-          from pathlib import Path
-
-          policy = json.loads(Path('release-policy.json').read_text(encoding='utf-8'))
-          licensing = policy.get('licensing', {})
-          expected = {
-              'project_license_spdx': 'Apache-2.0',
-              'root_license_path': 'LICENSE',
-              'root_notice_path': 'NOTICE',
-              'third_party_notices_path': 'THIRD_PARTY_NOTICES',
-              'package_license_must_match_project': True,
-              'distributed_package_notice_files': ['LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES'],
-              'third_party_distribution_revalidation_required_on_shape_change': True,
-              'private_development_repository_covered_by_public_license': False,
-          }
-          if licensing != expected:
-              raise SystemExit(f'public licensing policy drifted: {licensing!r}')
-
-          root_license = Path('LICENSE').read_text(encoding='utf-8')
-          if 'Apache License' not in root_license or 'Version 2.0, January 2004' not in root_license:
-              raise SystemExit('root LICENSE is not the expected Apache-2.0 license text')
-
-          notice = Path('NOTICE').read_text(encoding='utf-8')
-          if 'OXCE Mod Studio' not in notice or 'OpenXcom Team' not in notice:
-              raise SystemExit('root NOTICE lost required project/upstream attribution')
-
-          third = Path('THIRD_PARTY_NOTICES').read_text(encoding='utf-8')
-          required_markers = [
-              'OpenXcom Ruleset Tools v0.9.45',
-              '089e560e60819ec0b35d834f0b6dc65b5ea76d06',
-              'License: MIT',
-              'Copyright (c) 2018 OpenXcom Team',
-              'yaml v2.9.0',
-              'License: ISC',
-              'Copyright Eemeli Aro <eemeli@gmail.com>',
-              'Validation-only components',
-          ]
-          missing = [marker for marker in required_markers if marker not in third]
-          if missing:
-              raise SystemExit('root THIRD_PARTY_NOTICES lost markers: ' + ', '.join(missing))
-
-          package_path = Path('packages/weapon-editor/package.json')
-          package = json.loads(package_path.read_text(encoding='utf-8'))
-          package_license = package.get('license')
-          if package_license is not None and package_license != 'Apache-2.0':
-              raise SystemExit(f'weapon-editor license disagrees with public policy: {package_license!r}')
-
-          package_notice_paths = [Path('packages/weapon-editor') / name for name in licensing['distributed_package_notice_files']]
-          present = [path.name for path in package_notice_paths if path.exists()]
-          if package_license == 'Apache-2.0':
-              absent = [str(path) for path in package_notice_paths if not path.exists()]
-              if absent:
-                  raise SystemExit('Apache-licensed package is missing distributed notice files: ' + ', '.join(absent))
-          else:
-              print('package-level Apache metadata/notices pending governed private projection')
-
-          print('public project license: Apache-2.0')
-          print('public root LICENSE/NOTICE/THIRD_PARTY_NOTICES: validated')
-          print('package notice files currently present:', ', '.join(present) if present else 'none')
-          PY
+      - name: Validate Apache-2.0 release-rights contract
+        run: node .github/scripts/verify-release-rights.mjs
