@@ -232,6 +232,9 @@ jobs:
     runs-on: ubuntu-22.04
     permissions:
       contents: write
+    concurrency:
+      group: studio-exp-rolling-publisher
+      cancel-in-progress: false
     env:
       GH_TOKEN: ${{ github.token }}
       CANDIDATE_SHA: ${{ github.sha }}
@@ -242,6 +245,28 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.sha }}
+
+      - name: Require current branch tip and unchanged release controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          CURRENT_TIP="$(git ls-remote origin refs/heads/semper/weapon-editor-exp | cut -f1)"
+          test -n "$CURRENT_TIP"
+          if [[ "$CURRENT_TIP" != "$CANDIDATE_SHA" ]]; then
+            echo "Candidate ${CANDIDATE_SHA} is stale; current branch tip is ${CURRENT_TIP}. Refusing rolling publication." >&2
+            exit 1
+          fi
+
+          PARENT="$(git rev-parse "${CANDIDATE_SHA}^")"
+          mapfile -t CHANGED < <(git diff --name-only "$PARENT" "$CANDIDATE_SHA")
+          for FILE in "${CHANGED[@]}"; do
+            case "$FILE" in
+              release-policy.json|.github/workflows/publication-policy.yml|.github/workflows/weapon-editor-public.yml|.github/workflows/verify-experimental-release.yml|.github/workflows/sanitized-cross-platform-smoke.yml)
+                echo "Candidate changes release-control file ${FILE}; land and validate control changes separately before a subsequent governed publication candidate." >&2
+                exit 1
+                ;;
+            esac
+          done
 
       - name: Download validated package
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -294,6 +319,16 @@ jobs:
               checksum_lines.append(f"{digest(path)}  {path.name}")
           (root / 'SHA256SUMS.txt').write_text('\n'.join(checksum_lines) + '\n', encoding='utf-8')
           PY
+
+      - name: Recheck current branch tip before mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          CURRENT_TIP="$(git ls-remote origin refs/heads/semper/weapon-editor-exp | cut -f1)"
+          if [[ "$CURRENT_TIP" != "$CANDIDATE_SHA" ]]; then
+            echo "Candidate ${CANDIDATE_SHA} was superseded by ${CURRENT_TIP}; refusing rolling mutation." >&2
+            exit 1
+          fi
 
       - name: Move rolling experimental tag
         shell: bash
