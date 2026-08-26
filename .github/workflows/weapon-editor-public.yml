@@ -229,36 +229,6 @@ jobs:
           node "$STRICT_VERIFIER" --manifest "$MANIFEST" | tee promotion-receipt-verification.json
           echo "authorized=true" >> "$GITHUB_OUTPUT"
 
-  stable-candidate-lineage:
-    name: stable-candidate-lineage
-    if: github.event_name == 'pull_request' && github.base_ref == 'main' && startsWith(github.head_ref, 'release-candidate/')
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: read
-    env:
-      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
-
-    steps:
-      - name: Checkout exact release-candidate head
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
-          persist-credentials: false
-
-      - name: Verify exact governed stable-candidate lineage
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
-          MANIFEST="promotion-manifest.json"
-          STRICT_VERIFIER="packages/weapon-editor/scripts/verify-public-receipt-strict.mjs"
-          VERIFIER="packages/weapon-editor/scripts/verify-public-receipt.mjs"
-          test -s "$MANIFEST"
-          test -s "$STRICT_VERIFIER"
-          test -s "$VERIFIER"
-          node "$STRICT_VERIFIER" --manifest "$MANIFEST" | tee stable-candidate-receipt-verification.json
-
   publish-rolling-experimental:
     needs:
       - build-test-package
