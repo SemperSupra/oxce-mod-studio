@@ -120,10 +120,10 @@ jobs:
           set -euo pipefail
           "$GITHUB_WORKSPACE/packages/weapon-editor/node_modules/.bin/esbuild" \
             packages/weapon-editor/test/provider-web-test.mjs \
-            --bundle \
-            --platform=browser \
-            --format=cjs \
-            --external:vscode \
+            --bundle
+            --platform=browser
+            --format=cjs
+            --external:vscode
             --outfile=packages/weapon-editor/dist/provider-web-test.js
 
       - name: Exercise Studio with pinned real browser providers
@@ -229,6 +229,10 @@ jobs:
           node "$STRICT_VERIFIER" --manifest "$MANIFEST" | tee promotion-receipt-verification.json
           echo "authorized=true" >> "$GITHUB_OUTPUT"
 
+      - name: Verify authorized candidate Apache release rights
+        if: steps.receipt.outputs.authorized == 'true'
+        run: node .github/scripts/verify-release-rights.mjs --require-package
+
   publish-rolling-experimental:
     needs:
       - build-test-package
@@ -266,7 +270,7 @@ jobs:
           mapfile -t CHANGED < <(git diff --name-only "$PARENT" "$CANDIDATE_SHA")
           for FILE in "${CHANGED[@]}"; do
             case "$FILE" in
-              release-policy.json|.github/workflows/publication-policy.yml|.github/workflows/weapon-editor-public.yml|.github/workflows/verify-experimental-release.yml|.github/workflows/sanitized-cross-platform-smoke.yml)
+              LICENSE|NOTICE|THIRD_PARTY_NOTICES|release-policy.json|.github/scripts/verify-release-rights.mjs|.github/workflows/license-policy.yml|.github/workflows/publication-policy.yml|.github/workflows/weapon-editor-public.yml|.github/workflows/verify-experimental-release.yml|.github/workflows/sanitized-cross-platform-smoke.yml|.github/workflows/stable-candidate-lineage.yml|.github/workflows/verify-no-publication-mutation.yml|.github/scripts/verify-rolling-release-state.mjs|.github/evidence/72-pre-hardening-rolling-state.json)
                 echo "Candidate changes release-control file ${FILE}; land and validate control changes separately before a subsequent governed publication candidate." >&2
                 exit 1
                 ;;
