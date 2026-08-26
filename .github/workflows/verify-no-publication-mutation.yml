@@ -1,0 +1,34 @@
+name: Verify no rolling publication mutation
+
+on:
+  push:
+    branches:
+      - semper/weapon-editor-exp
+    paths:
+      - '.github/evidence/72-pre-hardening-rolling-state.json'
+      - '.github/scripts/verify-rolling-release-state.mjs'
+      - '.github/workflows/verify-no-publication-mutation.yml'
+  pull_request:
+    paths:
+      - '.github/evidence/72-pre-hardening-rolling-state.json'
+      - '.github/scripts/verify-rolling-release-state.mjs'
+      - '.github/workflows/verify-no-publication-mutation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-no-publication-mutation:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout proof inputs
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify live rolling channel still matches pre-hardening state
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node .github/scripts/verify-rolling-release-state.mjs

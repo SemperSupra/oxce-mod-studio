@@ -13,6 +13,9 @@ on:
       - '.github/workflows/verify-experimental-release.yml'
       - '.github/workflows/sanitized-cross-platform-smoke.yml'
       - '.github/workflows/stable-candidate-lineage.yml'
+      - '.github/workflows/verify-no-publication-mutation.yml'
+      - '.github/scripts/verify-rolling-release-state.mjs'
+      - '.github/evidence/72-pre-hardening-rolling-state.json'
   pull_request:
     paths:
       - 'README.md'
@@ -26,6 +29,9 @@ on:
       - '.github/workflows/verify-experimental-release.yml'
       - '.github/workflows/sanitized-cross-platform-smoke.yml'
       - '.github/workflows/stable-candidate-lineage.yml'
+      - '.github/workflows/verify-no-publication-mutation.yml'
+      - '.github/scripts/verify-rolling-release-state.mjs'
+      - '.github/evidence/72-pre-hardening-rolling-state.json'
   workflow_dispatch:
 
 permissions:
@@ -108,6 +114,7 @@ jobs:
               Path('.github/workflows/verify-experimental-release.yml'),
               Path('.github/workflows/sanitized-cross-platform-smoke.yml'),
               Path('.github/workflows/stable-candidate-lineage.yml'),
+              Path('.github/workflows/verify-no-publication-mutation.yml'),
           ]
           release_action_refs = {}
           for workflow in assurance_workflows:
@@ -172,6 +179,18 @@ jobs:
           if missing_release:
               raise SystemExit('release workflow lost publication hardening controls: ' + ', '.join(missing_release))
 
+          negative_workflow = Path('.github/workflows/verify-no-publication-mutation.yml').read_text(encoding='utf-8')
+          negative_script = Path('.github/scripts/verify-rolling-release-state.mjs').read_text(encoding='utf-8')
+          negative_baseline = json.loads(Path('.github/evidence/72-pre-hardening-rolling-state.json').read_text(encoding='utf-8'))
+          if 'Verify no rolling publication mutation' not in negative_workflow:
+              raise SystemExit('negative publication proof workflow missing')
+          if 'verify-rolling-release-state.mjs' not in negative_workflow:
+              raise SystemExit('negative publication proof workflow no longer invokes verifier')
+          if 'ROLLING RELEASE STATE CHANGED' not in negative_script or 'download_count' in negative_script:
+              raise SystemExit('negative publication proof verifier drifted or began treating download counts as mutation')
+          if negative_baseline.get('tag') != 'studio-exp-current' or negative_baseline.get('repository') != 'SemperSupra/oxce-mod-studio':
+              raise SystemExit('negative publication proof baseline target drifted')
+
           exact_head_marker = 'CANDIDATE_SHA: $' + '{{ github.event.pull_request.head.sha }}'
           exact_base_marker = 'BASE_SHA: $' + '{{ github.event.pull_request.base.sha }}'
           required_stable_controls = {
@@ -192,6 +211,7 @@ jobs:
           print('governed promotion-lineage release invariants validated')
           print('all release-assurance official Action refs are immutable and match reviewed pins')
           print('rolling publisher serialization/freshness/control-change guards validated')
+          print('negative rolling-publication proof inputs validated')
           print('Class U/Class P trigger, runner, cache, and credential-persistence invariants validated')
           print('stable candidate exact-SHA/current-main/control-change guards validated')
           PY
@@ -210,3 +230,4 @@ jobs:
           grep -Fq 'stable-candidate-lineage' .github/workflows/stable-candidate-lineage.yml
           grep -Fq 'Verify exact governed stable-candidate lineage' .github/workflows/stable-candidate-lineage.yml
           grep -Fq 'Verify public release without credentials' .github/workflows/verify-experimental-release.yml
+          grep -Fq 'Verify no rolling publication mutation' .github/workflows/verify-no-publication-mutation.yml
