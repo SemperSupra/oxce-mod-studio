@@ -172,11 +172,13 @@ jobs:
           if missing_release:
               raise SystemExit('release workflow lost publication hardening controls: ' + ', '.join(missing_release))
 
+          exact_head_marker = 'CANDIDATE_SHA: $' + '{{ github.event.pull_request.head.sha }}'
+          exact_base_marker = 'BASE_SHA: $' + '{{ github.event.pull_request.base.sha }}'
           required_stable_controls = {
               'stable check context': 'stable-candidate-lineage',
               'release-candidate scope': "startsWith(github.head_ref, 'release-candidate/')",
-              'exact PR head': 'CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}',
-              'exact PR base': 'BASE_SHA: ${{ github.event.pull_request.base.sha }}',
+              'exact PR head': exact_head_marker,
+              'exact PR base': exact_base_marker,
               'no persisted checkout credentials': 'persist-credentials: false',
               'current-main direct parent': 'does not equal current PR main base',
               'stable release-control refusal': 'Stable candidate changes release-control file',
