@@ -1,0 +1,27 @@
+name: Signal Frontier original asset formats
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/signal-frontier-assets.yml"
+      - "rdte/signal-frontier-assets/**"
+permissions:
+  contents: read
+jobs:
+  native-go-asset-format:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Qualify codecs with race detector
+        run: cd rdte/signal-frontier-assets && go test -race ./...
+      - name: Emit originals and manifest
+        run: cd rdte/signal-frontier-assets && go run . "$GITHUB_WORKSPACE/.out/signal-frontier-assets"
+      - name: Preserve provenance hashes
+        run: sha256sum .out/signal-frontier-assets/manifest.json
