@@ -44,7 +44,8 @@ func(c *Client) run(req map[string]interface{})(map[string]interface{},error){
 func(c *Client) states()([]string,error){
  r,e:=c.run(map[string]interface{}{"cmd":"get_state"});if e!=nil{return nil,e}
  out:=[]string{}
- for _,v:=range r["states"].([]interface{}){if s,ok:=v.(string);ok{out=append(out,s)}}
+ raw,ok:=r["states"].([]interface{});if !ok{return nil,fmt.Errorf("missing states array")}
+ for _,v:=range raw{if name,ok:=v.(string);ok{out=append(out,name)}}
  return out,nil
 }
 func(c *Client) waitState(expected string)([]string,error){
@@ -54,7 +55,8 @@ func(c *Client) waitState(expected string)([]string,error){
   for _,s:=range v{if strings.Contains(s,expected){return v,nil}}
   time.Sleep(150*time.Millisecond)
  }
- return c.states()
+ latest,e:=c.states();if e!=nil{return latest,e}
+ return latest,fmt.Errorf("timeout waiting for %s; states=%v",expected,latest)
 }
 func main(){
  if len(os.Args)!=4{fmt.Fprintln(os.Stderr,"usage: session_probe <host-user> <client-user> <out.json>");os.Exit(2)}
