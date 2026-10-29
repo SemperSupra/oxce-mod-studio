@@ -1,0 +1,91 @@
+name: Modified OXCE Co-op source-only multi-instance qualification
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/modified-oxce-coop-rdte.yml"
+      - "rdte/modified-engine-coop/**"
+permissions:
+  contents: read
+concurrency:
+  group: modified-oxce-coop-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+jobs:
+  actual-coop-engine:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Install SDL, networking and test packages
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config git \
+            libsdl1.2-dev libsdl-image1.2-dev libsdl-gfx1.2-dev \
+            libsdl-mixer1.2-dev libsdl-net1.2-dev libsodium-dev \
+            libjsoncpp-dev libvorbis-dev zlib1g-dev libyaml-cpp-dev \
+            libboost-dev libgl1-mesa-dev xvfb xauth
+      - name: Pin real public OXCE co-op source and control companion
+        run: |
+          mkdir -p .out/coop-evidence
+          git init .out/coop-engine
+          git -C .out/coop-engine remote add origin https://github.com/OpenXcom-Coop/OpenXcom-Coop-Mod.git
+          git -C .out/coop-engine fetch --depth 1 origin 33f5c251d29b257130cfbb7634735d2e9c946299
+          git -C .out/coop-engine checkout --detach FETCH_HEAD
+          test "$(git -C .out/coop-engine rev-parse HEAD)" = "33f5c251d29b257130cfbb7634735d2e9c946299"
+          git init .out/public-control
+          git -C .out/public-control remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
+          git -C .out/public-control fetch --depth 1 origin b017142cae092e04ad685703e8157195b74314b4
+          git -C .out/public-control checkout --detach FETCH_HEAD
+          test "$(git -C .out/public-control rev-parse HEAD)" = "b017142cae092e04ad685703e8157195b74314b4"
+      - name: Apply same opt-in source instrumentation to multiplayer fork
+        run: |
+          node .out/public-control/rdte/modified-engine/patch-engine.mjs .out/coop-engine/src/Engine/Game.cpp | tee .out/coop-evidence/patch.txt
+          grep -q 'SF_RDTE_EVAL_BEGIN' .out/coop-engine/src/Engine/Game.cpp
+      - name: CMake actual co-op modified engine build
+        shell: bash
+        run: |
+          set +e
+          cmake -S .out/coop-engine -B .out/coop-build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_PACKAGE=OFF -DDEV_BUILD=OFF -DEMBED_ASSETS=OFF > .out/coop-evidence/configure.log 2>&1
+          c=$?
+          echo "configure_exit=$c" | tee .out/coop-evidence/exits.txt
+          if [ "$c" = 0 ]; then
+            cmake --build .out/coop-build --parallel 4 > .out/coop-evidence/build.log 2>&1
+            b=$?
+          else
+            b=125
+          fi
+          echo "build_exit=$b" | tee -a .out/coop-evidence/exits.txt
+          test "$b" = 0
+      - name: Verify same executable exposes both game and co-op test seams
+        shell: bash
+        run: |
+          test -x .out/coop-build/bin/openxcom
+          grep -q 'OXC_TEST_PORT' .out/coop-engine/src/CoopMod/TestServer.cpp
+          test -s .out/coop-engine/tools/coop_test/test_geoscape_sync.py
+          .out/coop-build/bin/openxcom -version > .out/coop-evidence/version.txt 2>&1 || true
+          sha256sum .out/coop-build/bin/openxcom > .out/coop-evidence/engine.sha256
+          echo 'No full two-player session validated by this source/build-only job.' >> .out/coop-evidence/exits.txt
+      - name: Package GPL modified co-op evaluation executable
+        run: |
+          mkdir -p .out/coop-dist
+          cp .out/coop-build/bin/openxcom .out/coop-dist/openxcom-coop-sf-rdte
+          cp .out/coop-engine/LICENSE.txt .out/coop-dist/LICENSE-GPL3.txt
+          cp rdte/modified-engine-coop/README.md .out/coop-dist/README.md
+          tar -C .out/coop-dist -czf .out/modified-oxce-coop-linux-x86_64-BUILD-QUAL.tar.gz .
+          sha256sum .out/modified-oxce-coop-linux-x86_64-BUILD-QUAL.tar.gz >> .out/coop-evidence/engine.sha256
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: modified-oxce-coop-build-${{ github.run_id }}
+          path: .out/modified-oxce-coop-linux-x86_64-BUILD-QUAL.tar.gz
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: modified-oxce-coop-evidence-${{ github.run_id }}
+          path: .out/coop-evidence/
+          retention-days: 7
+          if-no-files-found: warn
