@@ -5,7 +5,7 @@ import (
   "strings"
   "testing"
 )
-const fixture = "musics:\n  - type: GMGEO1\ncrafts:\n  - type: STR_SF_RESPONDER\nalienDeployments:\n  - type: STR_SF_RELAY_DEPLOYMENT\nterrains:\n  - name: SF_RELAY\nsoldiers:\n  - type: STR_SF_SURVEYOR\narmors:\n  - type: STR_SF_SURVEY_ARMOR\n    corpseBattle: [STR_SF_SURVEY_SHELL]\n    loftempsSet: [3]\nalienRaces:\n  - id: STR_SF_QUIET_ARRAY\nitems:\n  - type: STR_SF_SURVEY_SHELL\nunits:\n  - type: STR_SF_PROBE\nalienItemLevels:\n  - [0, 0, 0]\ncountries:\n  - type: STR_SF_COUNCIL\n    fundingBase: 500\n    areas:\n      - [10, 340, -65, 65]\nregions:\n  - type: STR_SF_AREA\n    areas:\n      - [10, 340, -65, 65]\nstartingBase:\n  facilities: []\n  crafts: []\n  items: {}\ninterfaces:\n  - type: mainMenu\n  - type: newGameMenu\n  - type: newBattleMenu\n  - type: geoscape\n    elements:\n      - id: slackingIndicator\n      - id: trainingIndicator\n  - type: pauseMenu\n  - type: saveMenus\n  - type: baseNaming\n  - type: placeFacility\n  - type: selectFacility\n  - type: basescape\nfacilities:\n  - type: STR_SF_ACCESS_LIFT\n    lift: true\n    fireSound: -1\n    hitSound: -1\n    placeSound: -1\nglobe:\n  polygons:\n    - [0, -15, -15, 15, -15, 0, 15]\n  textures:\n    - id: 0\n      terrain: []\n"
+const fixture = "invs:\n  - id: STR_GROUND\n    x: 0\n    y: 140\n    type: 2\n  - id: STR_RIGHT_HAND\n    type: 1\n  - id: STR_LEFT_HAND\n    type: 1\n  - id: STR_BELT\n    type: 0\n    slots: [[0, 0], [1, 0]]\n  - id: STR_BACK_PACK\n    type: 0\n    slots: [[0, 0], [1, 0]]\nmusics:\n  - type: GMGEO1\ncrafts:\n  - type: STR_SF_RESPONDER\nalienDeployments:\n  - type: STR_SF_RELAY_DEPLOYMENT\nterrains:\n  - name: SF_RELAY\nsoldiers:\n  - type: STR_SF_SURVEYOR\narmors:\n  - type: STR_SF_SURVEY_ARMOR\n    corpseBattle: [STR_SF_SURVEY_SHELL]\n    loftempsSet: [3]\nalienRaces:\n  - id: STR_SF_QUIET_ARRAY\nitems:\n  - type: STR_SF_SURVEY_SHELL\nunits:\n  - type: STR_SF_PROBE\nalienItemLevels:\n  - [0, 0, 0]\ncountries:\n  - type: STR_SF_COUNCIL\n    fundingBase: 500\n    areas:\n      - [10, 340, -65, 65]\nregions:\n  - type: STR_SF_AREA\n    areas:\n      - [10, 340, -65, 65]\nstartingBase:\n  facilities: []\n  crafts: []\n  items: {}\ninterfaces:\n  - type: mainMenu\n  - type: newGameMenu\n  - type: newBattleMenu\n  - type: geoscape\n    elements:\n      - id: slackingIndicator\n      - id: trainingIndicator\n  - type: pauseMenu\n  - type: saveMenus\n  - type: baseNaming\n  - type: placeFacility\n  - type: selectFacility\n  - type: basescape\nfacilities:\n  - type: STR_SF_ACCESS_LIFT\n    lift: true\n    fireSound: -1\n    hitSound: -1\n    placeSound: -1\nglobe:\n  polygons:\n    - [0, -15, -15, 15, -15, 0, 15]\n  textures:\n    - id: 0\n      terrain: []\n"
 
 func validRoot(t *testing.T) string{
   t.Helper()
@@ -92,4 +92,20 @@ func TestAccessLiftMustNotReferenceAbsentRetailSounds(t *testing.T){
  bad:=strings.Replace(fixture,"    hitSound: -1","    hitSound: 0",1)
  v:=Check([]byte(bad),[]byte("playIntro: false"),validRoot(t))
  if !strings.Contains(strings.Join(v.Missing,","),"facilities:no-retail-GEO-CAT-index"){t.Fatal(v)}
+}
+
+func TestGroundInventoryKindIsRequired(t *testing.T) {
+  bad:=strings.Replace(fixture,"  - id: STR_GROUND","  - id: STR_MISSING_GROUND",1)
+  v:=Check([]byte(bad),[]byte("playIntro: false"),validRoot(t))
+  if !strings.Contains(strings.Join(v.Missing,","),"invs:STR_GROUND:kind"){t.Fatal(v)}
+  bad=strings.Replace(fixture,"    y: 140\\n    type: 2","    y: 140\\n    type: 1",1)
+  v=Check([]byte(bad),[]byte("playIntro: false"),validRoot(t))
+  if !strings.Contains(strings.Join(v.Missing,","),"invs:STR_GROUND:kind"){t.Fatal(v)}
+}
+func TestHandInventoryAndPackSlotsRequired(t *testing.T) {
+  bad:=strings.Replace(fixture,"  - id: STR_RIGHT_HAND","  - id: STR_MISSING_HAND",1)
+  bad=strings.Replace(bad,"    slots: [[0, 0], [1, 0]]","    slots: []",1)
+  v:=Check([]byte(bad),[]byte("playIntro: false"),validRoot(t))
+  missing:=strings.Join(v.Missing,",")
+  if !strings.Contains(missing,"invs:STR_RIGHT_HAND:kind")||!strings.Contains(missing,"invs:STR_BELT:slots"){t.Fatal(v)}
 }
