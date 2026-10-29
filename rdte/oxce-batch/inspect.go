@@ -77,8 +77,7 @@ func batch(root string)Receipt{
 func main(){
  if len(os.Args)!=3{fmt.Fprintln(os.Stderr,"usage: inspect <root> <out.json>");os.Exit(2)}
  r:=batch(os.Args[1]);b,e:=json.MarshalIndent(r,"","  ");if e!=nil{panic(e)}
- if e=os.WriteFile(os.Args[2],append(b,'
-'),0644);e!=nil{panic(e)}
+ if e=os.WriteFile(os.Args[2],append(b,byte(10)),0644);e!=nil{panic(e)}
  fmt.Println(string(b))
  for _,x:=range r.NativeScenarios{if !x.TargetObserved||x.ErrorScreen{fmt.Fprintln(os.Stderr,"FAILED gate",x.Name);os.Exit(1)}}
 }
