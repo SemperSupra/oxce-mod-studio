@@ -5,7 +5,7 @@ import (
   "strings"
   "testing"
 )
-const fixture = "invs:\n  - id: STR_GROUND\n    x: 0\n    y: 140\n    type: 2\n  - id: STR_RIGHT_HAND\n    type: 1\n  - id: STR_LEFT_HAND\n    type: 1\n  - id: STR_BELT\n    type: 0\n    slots: [[0, 0], [1, 0]]\n  - id: STR_BACK_PACK\n    type: 0\n    slots: [[0, 0], [1, 0]]\nmusics:\n  - type: GMGEO1\ncrafts:\n  - type: STR_SF_RESPONDER\nalienMissions:\n  - type: STR_SF_SIGNAL_PATROL\nalienDeployments:\n  - type: STR_SF_RELAY_DEPLOYMENT\nmapScripts:\n  - type: DEFAULT\n    commands:\n      - type: addBlock\n        size: [1, 1]\n        blocks: [0]\nterrains:\n  - name: SF_RELAY\nsoldiers:\n  - type: STR_SF_SURVEYOR\narmors:\n  - type: STR_SF_SURVEY_ARMOR\n    corpseBattle: [STR_SF_SURVEY_SHELL]\n    loftempsSet: [3]\nalienRaces:\n  - id: STR_SF_QUIET_ARRAY\nitems:\n  - type: STR_SF_SURVEY_SHELL\nunits:\n  - type: STR_SF_PROBE\nalienItemLevels:\n  - [0, 0, 0]\ncountries:\n  - type: STR_SF_COUNCIL\n    fundingBase: 500\n    areas:\n      - [10, 340, -65, 65]\nregions:\n  - type: STR_SF_AREA\n    areas:\n      - [10, 340, -65, 65]\nstartingBase:\n  facilities: []\n  crafts: []\n  items: {}\ninterfaces:\n  - type: mainMenu\n  - type: newGameMenu\n  - type: newBattleMenu\n  - type: geoscape\n    elements:\n      - id: slackingIndicator\n      - id: trainingIndicator\n  - type: pauseMenu\n  - type: saveMenus\n  - type: baseNaming\n  - type: placeFacility\n  - type: selectFacility\n  - type: basescape\nfacilities:\n  - type: STR_SF_ACCESS_LIFT\n    lift: true\n    fireSound: -1\n    hitSound: -1\n    placeSound: -1\nglobe:\n  polygons:\n    - [0, -15, -15, 15, -15, 0, 15]\n  textures:\n    - id: 0\n      terrain: []\n"
+const fixture = "invs:\n  - id: STR_GROUND\n    x: 0\n    y: 140\n    type: 2\n  - id: STR_RIGHT_HAND\n    type: 1\n  - id: STR_LEFT_HAND\n    type: 1\n  - id: STR_BELT\n    type: 0\n    slots: [[0, 0], [1, 0]]\n  - id: STR_BACK_PACK\n    type: 0\n    slots: [[0, 0], [1, 0]]\nmusics:\n  - type: GMGEO1\ncrafts:\n  - type: STR_SF_RESPONDER\nalienMissions:\n  - type: STR_SF_SIGNAL_PATROL\nalienDeployments:\n  - type: STR_SF_RELAY_DEPLOYMENT\nmapScripts:\n  - type: DEFAULT\n    commands:\n      - type: addBlock\n        size: [1, 1]\n        blocks: [0]\nterrains:\n  - name: SF_RELAY\nsoldiers:\n  - type: STR_SF_SURVEYOR\narmors:\n  - type: STR_SF_SURVEY_ARMOR\n    corpseBattle: [STR_SF_SURVEY_SHELL]\n    loftempsSet: [3]\nalienRaces:\n  - id: STR_SF_QUIET_ARRAY\nitems:\n  - type: STR_SF_SURVEY_SHELL\nunits:\n  - type: STR_SF_PROBE\nalienItemLevels:\n  - [0, 0, 0]\ncountries:\n  - type: STR_SF_COUNCIL\n    fundingBase: 500\n    areas:\n      - [0, 360, -65, 65]\nregions:\n  - type: STR_SF_AREA\n    areas:\n      - [0, 360, -65, 65]\nstartingBase:\n  facilities: []\n  crafts: []\n  items: {}\ninterfaces:\n  - type: mainMenu\n  - type: newGameMenu\n  - type: newBattleMenu\n  - type: geoscape\n    elements:\n      - id: slackingIndicator\n      - id: trainingIndicator\n  - type: pauseMenu\n  - type: saveMenus\n  - type: baseNaming\n  - type: placeFacility\n  - type: selectFacility\n  - type: basescape\nfacilities:\n  - type: STR_SF_ACCESS_LIFT\n    lift: true\n    fireSound: -1\n    hitSound: -1\n    placeSound: -1\nglobe:\n  polygons:\n    - [0, -15, -15, 15, -15, 0, 15]\n  textures:\n    - id: 0\n      terrain: []\n"
 
 func validRoot(t *testing.T) string{
   t.Helper()
@@ -126,4 +126,13 @@ func TestMissingTacticalDefaultScriptFailsClosed(t *testing.T){
  bad=strings.Replace(fixture,"      - type: addBlock","      - type: addLine",1)
  v=Check([]byte(bad),[]byte("playIntro: false"),validRoot(t))
  if !strings.Contains(strings.Join(v.Missing,","),"mapScripts:DEFAULT-original-addBlock"){t.Fatal(v)}
+}
+
+func TestSyntheticOriginRequiresRealCountryAndRegion(t *testing.T){
+ bad:=strings.Replace(fixture,"      - [0, 360, -65, 65]","      - [10, 340, -65, 65]",1)
+ v:=Check([]byte(bad),[]byte("playIntro: false"),validRoot(t))
+ if !strings.Contains(strings.Join(v.Missing,","),"countries:contains-origin"){t.Fatal(v)}
+ bad=strings.Replace(fixture,"      - [0, 360, -65, 65]","      - [10, 340, -65, 65]",-1)
+ v=Check([]byte(bad),[]byte("playIntro: false"),validRoot(t))
+ if !strings.Contains(strings.Join(v.Missing,","),"regions:contains-origin"){t.Fatal(v)}
 }
