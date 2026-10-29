@@ -80,6 +80,7 @@ jobs:
           node rdte/oxce-engine-synthetic/generate.mjs .out/synthetic
           cp -a .out/upstream/bin/common .out/synthetic/data/common
           cp -a .out/upstream/bin/standard .out/synthetic/data/standard
+          node rdte/oxce-engine-synthetic/generate-legacy.mjs .out/synthetic/data
           test ! -e .out/synthetic/data/UFO
           test ! -e .out/synthetic/data/TFTD
           sha256sum .out/synthetic/user/mods/rdte-synthetic-master/metadata.yml \
@@ -98,7 +99,7 @@ jobs:
             exit 0
           fi
           echo "native_launch_attempted=true" >> .out/rdte-evidence/exit.env
-          timeout --kill-after=5s 25s xvfb-run -a "$BIN" \
+          SDL_AUDIODRIVER=dummy timeout --kill-after=5s 25s xvfb-run -a "$BIN" \
             -data "$PWD/.out/synthetic/data" \
             -user "$PWD/.out/synthetic/user" \
             -config "$PWD/.out/synthetic/config" \
@@ -117,6 +118,7 @@ jobs:
         shell: bash
         run: |
           cat .out/rdte-evidence/exit.env || true
+          node rdte/oxce-engine-synthetic/classify.mjs .out/rdte-evidence
           echo "Engine smoke only: a 0/124 return is not automatically gameplay or engine-rule acceptance." >> "$GITHUB_STEP_SUMMARY"
           echo "Original game assets were neither downloaded nor supplied." >> "$GITHUB_STEP_SUMMARY"
 
