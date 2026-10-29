@@ -13,7 +13,13 @@ permissions:
   actions: read
 jobs:
   dual-engine-smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [separate, shared]
     runs-on: ubuntu-22.04
+    env:
+      SF_COOP_MODE: ${{ matrix.mode }}
     timeout-minutes: 16
     steps:
       - uses: actions/checkout@v4
@@ -43,7 +49,7 @@ jobs:
         run: |
           git init .out/public-fixtures
           git -C .out/public-fixtures remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
-          git -C .out/public-fixtures fetch --depth 1 origin 63fc917f8da18b879ebed067bc099c3525394fb9
+          git -C .out/public-fixtures fetch --depth 1 origin 92c845a5f9215ca5636eff80de9e7c2404314766
           git -C .out/public-fixtures checkout --detach FETCH_HEAD
           git init .out/public-coop-source
           git -C .out/public-coop-source remote add origin https://github.com/OpenXcom-Coop/OpenXcom-Coop-Mod.git
@@ -115,7 +121,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coop-dual-process-original-asset-free-${{ github.run_id }}
+          name: coop-${{ matrix.mode }}-original-asset-free-${{ github.run_id }}
           path: .out/evidence/
           retention-days: 7
           if-no-files-found: warn
@@ -141,5 +147,7 @@ jobs:
           const keys=['CampaignMode','CampaignModeConsistent','ObservedSubsetEqual','WorldClockEqual','HostSavedBaseVisible','ClientSavedBaseVisible','HostStrategicReady','ClientStrategicReady','RealMultiplayerQualified','FirstFailure'];
           const lines=['### Actual co-op native read-only classification', ...keys.map(k => '- '+k+': '+JSON.stringify(r[k])),'This classification is not tactical or shared-world acceptance.'];
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n')+'\n');
-          if(r.CampaignMode!=='SEPARATE'||r.CampaignModeConsistent!==true)process.exit(1);
+          const want=process.env.SF_COOP_MODE==='shared'?'SHARED':'SEPARATE';
+          if(r.CampaignMode!==want||r.CampaignModeConsistent!==true)process.exit(1);
+          if(want==='SHARED' && (!r.ClientSeesHostBase||!r.HostWorldObserved||!r.ClientWorldObserved))process.exit(1);
           NODE
