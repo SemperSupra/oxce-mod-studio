@@ -4,6 +4,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
+import { deflateSync } from 'node:zlib';
 
 const root=resolve(process.argv[2]||'.out/synthetic/data');
 const made=[];
@@ -35,6 +36,34 @@ function blankPck(dir,name,frames=512) {
   put(dir+'/'+name+'.PCK',pck);
   put(dir+'/'+name+'.TAB',tab);
 }
+// Original 9-frame, 3x3 retro-futurist marker strip, encoded with Node stdlib.
+function markerPNG(){
+  const w=27,h=3,scan=Buffer.alloc(h*(1+4*w));
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      const i=y*(1+4*w)+1+x*4;
+      const on=(x%3===1||y===1);
+      scan[i]=on?36:0;scan[i+1]=on?205:0;scan[i+2]=on?244:0;scan[i+3]=on?255:0;
+    }
+  }
+  function crc32(src){
+    let c=0xffffffff;
+    for(const b of src){c^=b;for(let j=0;j<8;j++)c=(c>>>1)^((c&1)?0xedb88320:0);}
+    return (c^0xffffffff)>>>0;
+  }
+  function chunk(name,raw){
+    const kind=Buffer.from(name),len=Buffer.alloc(4),check=Buffer.alloc(4);
+    len.writeUInt32BE(raw.length);check.writeUInt32BE(crc32(Buffer.concat([kind,raw])));
+    return Buffer.concat([len,kind,raw,check]);
+  }
+  const header=Buffer.alloc(13);
+  header.writeUInt32BE(w,0);header.writeUInt32BE(h,4);header[8]=8;header[9]=6;
+  return Buffer.concat([
+    Buffer.from([137,80,78,71,13,10,26,10]),
+    chunk('IHDR',header),chunk('IDAT',deflateSync(scan)),chunk('IEND',Buffer.alloc(0))
+  ]);
+}
+put('multiplayer/globe-markers.png',markerPNG());
 palettes();
 image('GEODATA/INTERWIN.DAT',160,600);
 put('GEODATA/SCANG.DAT',Buffer.alloc(4*4));
