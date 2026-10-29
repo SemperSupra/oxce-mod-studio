@@ -135,3 +135,11 @@ jobs:
             exit 1
           fi
           echo 'SESSION_PROGRESS=NO_FIRST_FAILURE_RECORDED_BUT_PLAYABILITY_UNQUALIFIED' >> "$GITHUB_STEP_SUMMARY"
+          node - <<'NODE'
+          const fs=require('fs');
+          const r=JSON.parse(fs.readFileSync('.out/evidence/session-progress.json','utf8'));
+          const keys=['CampaignMode','CampaignModeConsistent','ObservedSubsetEqual','WorldClockEqual','HostSavedBaseVisible','ClientSavedBaseVisible','HostStrategicReady','ClientStrategicReady','RealMultiplayerQualified','FirstFailure'];
+          const lines=['### Actual co-op native read-only classification', ...keys.map(k => '- '+k+': '+JSON.stringify(r[k])),'This classification is not tactical or shared-world acceptance.'];
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n')+'\n');
+          if(r.CampaignMode!=='SEPARATE'||r.CampaignModeConsistent!==true)process.exit(1);
+          NODE
