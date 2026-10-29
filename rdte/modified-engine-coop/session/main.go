@@ -28,6 +28,10 @@ type Result struct{
  HostBaseNamed bool
  HostSavedBaseVisible bool
  ClientSeesHostBase bool
+ ClientBaseNamed bool
+ ClientSavedBaseVisible bool
+ HostWorldObserved bool
+ ClientWorldObserved bool
  ClientObservation string
  HostStates []string
  ClientStates []string
@@ -136,6 +140,27 @@ func main(){
    if ok&&record["name"]=="Signal Ridge"{r.ClientSeesHostBase=true}
   }
  }
+ // The native separate-coop client must place its own first base before
+ // the host's wait-for-bases dialogue can settle the campaign. Use the same
+ // proven synthetic land triangle, offset from the host's base location.
+ r.ClientStates,e=client.waitState("BuildNewBaseState")
+ if e!=nil{r.FirstFailure="client-first-base-state: "+e.Error();return}
+ if _,ok:=cmd(client,map[string]interface{}{"cmd":"place_first_base","lon":5.0,"lat":0.0,"name":"Echo Station"});!ok{return}
+ r.ClientBaseNamed=true
+ local,ok:=cmd(client,map[string]interface{}{"cmd":"get_soldiers"});if !ok{return}
+ cb,exists:=local["bases"].([]interface{})
+ if !exists{r.FirstFailure="client-base-list-missing";return}
+ for _,item:=range cb{
+  record,isObj:=item.(map[string]interface{})
+  if isObj&&record["name"]=="Echo Station"{r.ClientSavedBaseVisible=true}
+ }
+ if !r.ClientSavedBaseVisible{r.FirstFailure="client-named-base-not-visible";return}
+ r.HostStates,e=host.states();if e!=nil{r.FirstFailure="post-client-base-host-state: "+e.Error();return}
+ r.ClientStates,e=client.states();if e!=nil{r.FirstFailure="post-client-base-client-state: "+e.Error();return}
+ if _,e=host.run(map[string]interface{}{"cmd":"geo_state"});e==nil{r.HostWorldObserved=true}else{r.ClientObservation+=" host-geo:"+e.Error()}
+ if _,e=client.run(map[string]interface{}{"cmd":"geo_state"});e==nil{r.ClientWorldObserved=true}else{r.ClientObservation+=" client-geo:"+e.Error()}
+ // Still no shared world checksum or tactical turn-by-turn equivalence.
+ // Distinct single-player saves in a co-op lobby are not proof of sync.
  // A host base in a real save is NOT proof of synchronized campaign,
  // client base replication, shared Battlescape or a playable release.
 }
