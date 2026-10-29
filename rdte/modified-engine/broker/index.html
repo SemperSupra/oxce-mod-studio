@@ -10,13 +10,13 @@
 <button id="claim" type="button">Claim selected seat</button>
 <fieldset><legend>Game keyboard</legend><button data-key="enter">Enter / select</button><button data-key="escape">Back / Escape</button><button data-key="tab">Next / Tab</button><button data-key="space">Space</button>
 <button data-key="up">Up</button><button data-key="down">Down</button><button data-key="left">Left</button><button data-key="right">Right</button></fieldset>
-<h2>Observed screen class</h2><output id="status" role="status" aria-live="polite">No observation yet</output>
+<h2>Observed screen and controls</h2><section aria-label="Visible game controls"><div id="controls" role="group" aria-label="Game screen controls"></div></section><output id="status" role="status" aria-live="polite">No observation yet</output>
 <button id="refresh" type="button">Refresh observation</button>
 <p>Use the normal game window for visual gameplay. This companion currently provides limited state and input assistance, not full gameplay narration.</p></main>
 <script>
 const $=id=>document.getElementById(id);let revision=0;
 async function api(path,body){const opts={method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+$('token').value}};if(body!==undefined)opts.body=typeof body==='string'?body:JSON.stringify(body);const r=await fetch(path,opts);if(!r.ok)throw Error((await r.text()).slice(0,200));return r.json()}
-async function refresh(){try{const s=await api('/api/state');revision=s.Revision;$('status').textContent='Screen class: '+s.ScreenClass+'; active seat: '+s.ActiveSeat+'; commands: '+s.Commands+'; game-state semantics not yet qualified.'}catch(e){$('status').textContent='Observation unavailable: '+e.message}}
+async function refresh(){try{const s=await api('/api/state');revision=s.Revision;$('status').textContent='Screen: '+s.ScreenClass+'; active seat: '+s.ActiveSeat+'; controls: '+(s.Controls||[]).length+'; semantics partial, not accessibility-qualified.';const list=$('controls');const signature=JSON.stringify([s.ScreenClass,s.Controls]);if(list.dataset.signature!==signature){list.replaceChildren();for(const c of s.Controls||[]){const el=document.createElement(c.Role==='button'?'button':'p');el.textContent=c.Label;if(c.Role==='button'){el.setAttribute('aria-label',c.Label);el.addEventListener('click',async()=>{try{await api('/api/action',{Seat:$('seat').value,Kind:'click',X:Math.round((c.X+c.W/2)*(s.ScaleX||1)),Y:Math.round((c.Y+c.H/2)*(s.ScaleY||1)),Expected:revision});await refresh()}catch(e){$('status').textContent=e.message}})}list.append(el)}list.dataset.signature=signature}}catch(e){$('status').textContent='Observation unavailable: '+e.message}}
 $('refresh').onclick=refresh;$('claim').onclick=async()=>{try{await api('/api/seat',$('seat').value);await refresh()}catch(e){$('status').textContent=e.message}};
 document.querySelectorAll('[data-key]').forEach(b=>b.addEventListener('click',async()=>{try{await api('/api/action',{Seat:$('seat').value,Kind:'key',Key:b.dataset.key,Expected:revision});await refresh()}catch(e){$('status').textContent=e.message}}));
 refresh();

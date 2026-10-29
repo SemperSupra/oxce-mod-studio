@@ -14,17 +14,20 @@ import(
  "sync"
 )
 type Action struct{ Seat string; Kind string; Key string; X int; Y int; Expected uint64 }
-type Snapshot struct{ EvidenceClass string; Multiplayer bool; Revision uint64; ActiveSeat string; ScreenClass string; Commands int }
+type Control struct{Role string;Label string;X int;Y int;W int;H int}
+type Snapshot struct{ EvidenceClass string; Multiplayer bool; Revision uint64; ActiveSeat string; ScreenClass string; Commands int; Controls []Control; ScaleX float64; ScaleY float64 }
 type Broker struct{ mu sync.Mutex; mailbox string; trace string; token string; seq uint64; activeSeat string; commands int }
 var keys=map[string]int{"enter":13,"escape":27,"space":32,"up":273,"down":274,"right":275,"left":276,"tab":9,"backspace":8,"f1":282,"f2":283,"f3":284,"f4":285,"f5":286}
 func (b *Broker) view() Snapshot{
  b.mu.Lock();defer b.mu.Unlock()
  state:="unknown"
+ var controls []Control
+ var sx,sy float64
  if v,e:=os.ReadFile(b.trace);e==nil{
   rows:=strings.Split(strings.TrimSpace(string(v)),"\n")
-  if len(rows)>0{ var s struct{Class string};if json.Unmarshal([]byte(rows[len(rows)-1]),&s)==nil&&s.Class!=""{state=s.Class}}
+  if len(rows)>0{ var s struct{Class string; Controls []Control; ScaleX float64; ScaleY float64};if json.Unmarshal([]byte(rows[len(rows)-1]),&s)==nil&&s.Class!=""{state=s.Class;controls=s.Controls;sx=s.ScaleX;sy=s.ScaleY}}
  }
- return Snapshot{EvidenceClass:"LOCAL_SDL_INPUT_AND_CLASS_TRACE_NOT_GAMEPLAY",Multiplayer:false,Revision:b.seq,ActiveSeat:b.activeSeat,ScreenClass:state,Commands:b.commands}
+ return Snapshot{EvidenceClass:"LOCAL_ENGINE_TEXT_AND_BUTTON_TREE_NOT_FULL_A11Y",Multiplayer:false,Revision:b.seq,ActiveSeat:b.activeSeat,ScreenClass:state,Commands:b.commands,Controls:controls,ScaleX:sx,ScaleY:sy}
 }
 func (b *Broker) action(a Action) error{
  b.mu.Lock();defer b.mu.Unlock()
