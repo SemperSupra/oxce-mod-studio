@@ -1,5 +1,5 @@
 package main
-import("bytes";"encoding/json";"net/http";"net/http/httptest";"os";"path/filepath";"testing")
+import("bytes";"encoding/json";"net/http/httptest";"os";"path/filepath";"testing")
 func TestLocalOnlyControlledInputAndSeat(t *testing.T){
  d:=t.TempDir();b:=&Broker{mailbox:filepath.Join(d,"commands"),trace:filepath.Join(d,"trace"),token:"local-secret",activeSeat:"human"}
  h:=b.Handler([]byte("<main>hello</main>"))
