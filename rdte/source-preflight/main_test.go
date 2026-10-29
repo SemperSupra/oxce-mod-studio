@@ -40,6 +40,13 @@ func validRoot(t *testing.T) string{
     if err:=os.MkdirAll(dir,0700);err!=nil{t.Fatal(err)}
     if err:=os.WriteFile(filepath.Join(dir,artifact.name),artifact.raw,0600);err!=nil{t.Fatal(err)}
   }
+  langDir:=filepath.Join(root,"user","mods","rdte-synthetic-master","Language")
+  if err:=os.MkdirAll(langDir,0700);err!=nil{t.Fatal(err)}
+  lang:="en-US:\n"
+  for _,key:=range []string{"STR_MISSION","STR_CRAFT","STR_EQUIP_CRAFT","STR_TERROR_SITE","STR_SF_RELAY_DEPLOYMENT_BRIEFING"}{
+    lang+="  "+key+": \"Readable test translation\"\n"
+  }
+  if err:=os.WriteFile(filepath.Join(langDir,"en-US.yml"),[]byte(lang),0600);err!=nil{t.Fatal(err)}
   return root
 }
 func TestNecessarySourceConditions(t *testing.T){
@@ -188,4 +195,14 @@ func TestGlobeMarkerRequiresIndexedPNG(t *testing.T){
  if err:=os.WriteFile(path,b,0600);err!=nil{t.Fatal(err)}
  r:=Check([]byte(fixture),[]byte("playIntro: false"),root)
  if !strings.Contains(strings.Join(r.Missing,","),"original-coop-art:globe-markers-27x3"){t.Fatal(r)}
+}
+
+func TestUnresolvedNativeBattleTranslationRejected(t *testing.T){
+ root:=validRoot(t)
+ path:=filepath.Join(root,"user","mods","rdte-synthetic-master","Language","en-US.yml")
+ b,err:=os.ReadFile(path);if err!=nil{t.Fatal(err)}
+ damaged:=strings.Replace(string(b),"  STR_MISSION:","  MISSING_MISSION:",1)
+ if err:=os.WriteFile(path,[]byte(damaged),0600);err!=nil{t.Fatal(err)}
+ v:=Check([]byte(fixture),[]byte("playIntro: false"),root)
+ if !strings.Contains(strings.Join(v.Missing,","),"language:STR_MISSION"){t.Fatal(v)}
 }
