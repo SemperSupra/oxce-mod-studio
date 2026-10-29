@@ -97,6 +97,20 @@ func soundWAV()[]byte{
  }
  return b
 }
+// CAT indexes are little-endian (offset,size) pairs. Each embedded WAV has
+// a zero-length name prefix, as required by OXCE's SoundSet::loadCatByIndex.
+func encodeCAT(wav []byte,n int)[]byte{
+ table:=make([]byte,n*8)
+ out:=append([]byte{},table...)
+ for i:=0;i<n;i++{
+  offset:=len(out)
+  out=append(out,byte(0))
+  out=append(out,wav...)
+  binary.LittleEndian.PutUint32(out[i*8:],uint32(offset))
+  binary.LittleEndian.PutUint32(out[i*8+4:],uint32(1+len(wav)))
+ }
+ return out
+}
 func generate(root string) error{
  pix:=draw()
  second:=make([]uint8,len(pix));for i,v:=range pix{second[i]=v;if i%11==0 {second[i]=5}}
@@ -109,6 +123,8 @@ func generate(root string) error{
   "UNITS/SIGNALRELAY.TAB":tab,
   "Art/signal-relay.png":img,
   "Sound/signal-pulse.wav":soundWAV(),
+  "SOUND/SAMPLE.CAT":encodeCAT(soundWAV(),4),
+  "SOUND/SAMPLE2.CAT":encodeCAT(soundWAV(),4),
  }
  paths:=make([]string,0,len(outputs));for p:=range outputs{paths=append(paths,p)};sort.Strings(paths)
  m:=manifest{SchemaVersion:1,OriginalContent:true,ActualEngineQualified:false}

@@ -17,7 +17,7 @@ func TestDeterministicGeneration(t *testing.T){
  am,_:=os.ReadFile(filepath.Join(a,"manifest.json"));bm,_:=os.ReadFile(filepath.Join(b,"manifest.json"))
  if !bytes.Equal(am,bm){t.Fatal("nondeterministic manifest")}
  var m manifest;if err:=json.Unmarshal(am,&m);err!=nil{t.Fatal(err)}
- if !m.OriginalContent||m.ActualEngineQualified||len(m.Files)!=5{t.Fatalf("provenance or count %+v",m)}
+ if !m.OriginalContent||m.ActualEngineQualified||len(m.Files)!=7{t.Fatalf("provenance or count %+v",m)}
  for _,v:=range m.Files{
   x,err:=os.ReadFile(filepath.Join(a,v.Path));if err!=nil{t.Fatal(err)}
   y,err:=os.ReadFile(filepath.Join(b,v.Path));if err!=nil{t.Fatal(err)}
@@ -45,4 +45,21 @@ func TestRejectReservedByte(t *testing.T){
  f:=make([]byte,w*h);f[12]=255
  if _,_,err:=encodePCK([][]uint8{f},w,h);err==nil{t.Fatal("reserved byte allowed")}
  if _,_,err:=encodePCK([][]uint8{{1,2}},w,h);err==nil{t.Fatal("wrong dimensions allowed")}
+}
+
+func TestCATFormatLittleEndianAndWAVPayload(t *testing.T){
+ d:=t.TempDir()
+ if err:=generate(d);err!=nil{t.Fatal(err)}
+ for _,name:=range []string{"SAMPLE.CAT","SAMPLE2.CAT"}{
+  b,err:=os.ReadFile(filepath.Join(d,"SOUND",name));if err!=nil{t.Fatal(err)}
+  offset:=uint32(32)
+  for i:=0;i<4;i++{
+   off:=binary.LittleEndian.Uint32(b[i*8:])
+   size:=binary.LittleEndian.Uint32(b[i*8+4:])
+   if off!=offset||size<45{t.Fatalf("%s index %d: off=%d size=%d",name,i,off,size)}
+   if b[off]!=0||string(b[off+1:off+5])!="RIFF"{t.Fatal("invalid embedded named WAV")}
+   offset+=size
+  }
+  if int(offset)!=len(b){t.Fatal("CAT trailing bytes")}
+ }
 }
