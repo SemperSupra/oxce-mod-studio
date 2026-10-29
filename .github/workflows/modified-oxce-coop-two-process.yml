@@ -41,7 +41,7 @@ jobs:
         run: |
           git init .out/public-fixtures
           git -C .out/public-fixtures remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
-          git -C .out/public-fixtures fetch --depth 1 origin ac30644599a41b761405e0fbd3f737f71974b237
+          git -C .out/public-fixtures fetch --depth 1 origin c4e9f9ad29427488ea2d0b7d5edb6f6807259a59
           git -C .out/public-fixtures checkout --detach FETCH_HEAD
           git init .out/public-coop-source
           git -C .out/public-coop-source remote add origin https://github.com/OpenXcom-Coop/OpenXcom-Coop-Mod.git
