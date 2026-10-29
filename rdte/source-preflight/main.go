@@ -118,7 +118,8 @@ func Check(rules,config []byte,root string) Verdict {
   for _,name:=range []string{"slackingIndicator","trainingIndicator"} {
     require(matches(interfaces,"(?m)^\\s+- id:\\s+"+name+"\\s*$"),"interfaces:"+name)
   }
-) && matches(globe,`(?m)^\s+- \[0,\s*-15,\s*-15,\s*15,\s*-15,\s*0,\s*15\]`),"globe:original-land-triangle")
+  require(matches(globe,"(?m)^\\s+textures:\\s*$")&&matches(globe,"(?m)^\\s+- id:\\s+0\\s*$"),"globe:nonempty-textures")
+  require(strings.Contains(globe,"  polygons:")&&strings.Contains(globe,"    - [0, -15, -15, 15, -15, 0, 15]"),"globe:original-land-triangle")
   armor:=block(text,"armors")
   require(matches(armor,"(?m)^\\s+corpseBattle:\\s*\\[STR_SF_SURVEY_SHELL\\]\\s*$"),"armors:one-corpse")
   require(matches(armor,"(?m)^\\s+loftempsSet:\\s*\\[3\\]\\s*$"),"armors:one-loft-template")
