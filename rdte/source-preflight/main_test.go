@@ -13,9 +13,9 @@ func validRoot(t *testing.T) string{
   path:=filepath.Join(root,"data","SYNTHETIC","multiplayer")
   if err:=os.MkdirAll(path,0700);err!=nil{t.Fatal(err)}
   png:=[]byte{137,80,78,71,13,10,26,10,0,0,0,0}
-  markers:=make([]byte,24)
+  markers:=make([]byte,26)
   copy(markers,[]byte{137,80,78,71,13,10,26,10})
-  copy(markers[16:],[]byte{0,0,0,27,0,0,0,3})
+  copy(markers[16:],[]byte{0,0,0,27,0,0,0,3,8,3})
   if err:=os.WriteFile(filepath.Join(path,"globe-markers.png"),markers,0600);err!=nil{t.Fatal(err)}
   for _,name:=range []string{"base.png","avatar.png"} {
     if err:=os.WriteFile(filepath.Join(path,name),png,0600);err!=nil{t.Fatal(err)}
@@ -178,4 +178,14 @@ func TestOriginalGlobeMarkersAreNecessary(t *testing.T){
  v:=Check([]byte(bad),[]byte("playIntro: false"),root)
  e:=strings.Join(v.Missing,",")
  if !strings.Contains(e,"extraSprites:globe-markers-nine-frames")||!strings.Contains(e,"original-coop-art:globe-markers-27x3"){t.Fatal(v)}
+}
+
+func TestGlobeMarkerRequiresIndexedPNG(t *testing.T){
+ root:=validRoot(t)
+ path:=filepath.Join(root,"data","SYNTHETIC","multiplayer","globe-markers.png")
+ b,err:=os.ReadFile(path);if err!=nil{t.Fatal(err)}
+ b[25]=6
+ if err:=os.WriteFile(path,b,0600);err!=nil{t.Fatal(err)}
+ r:=Check([]byte(fixture),[]byte("playIntro: false"),root)
+ if !strings.Contains(strings.Join(r.Missing,","),"original-coop-art:globe-markers-27x3"){t.Fatal(r)}
 }
