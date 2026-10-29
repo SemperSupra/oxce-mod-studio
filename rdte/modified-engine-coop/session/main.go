@@ -32,6 +32,11 @@ type Result struct{
  ClientSavedBaseVisible bool
  HostWorldObserved bool
  ClientWorldObserved bool
+ HostGeo map[string]interface{}
+ ClientGeo map[string]interface{}
+ WorldClockEqual bool
+ HostStrategicReady bool
+ ClientStrategicReady bool
  ClientObservation string
  HostStates []string
  ClientStates []string
@@ -159,8 +164,34 @@ func main(){
  if !r.ClientSavedBaseVisible{r.FirstFailure="client-named-base-not-visible";return}
  r.HostStates,e=host.states();if e!=nil{r.FirstFailure="post-client-base-host-state: "+e.Error();return}
  r.ClientStates,e=client.states();if e!=nil{r.FirstFailure="post-client-base-client-state: "+e.Error();return}
- if _,e=host.run(map[string]interface{}{"cmd":"geo_state"});e==nil{r.HostWorldObserved=true}else{r.ClientObservation+=" host-geo:"+e.Error()}
- if _,e=client.run(map[string]interface{}{"cmd":"geo_state"});e==nil{r.ClientWorldObserved=true}else{r.ClientObservation+=" client-geo:"+e.Error()}
+ // Allow the original host/client network state machines a short,
+ // bounded chance to complete base-settlement acknowledgements.
+ until:=time.Now().Add(4*time.Second)
+ for time.Now().Before(until){
+   hs,he:=host.states()
+   cs,ce:=client.states()
+   if he==nil&&ce==nil{
+     r.HostStates=hs;r.ClientStates=cs
+     r.HostStrategicReady=len(hs)>0&&!strings.Contains(hs[len(hs)-1],"CoopState")&&!strings.Contains(hs[len(hs)-1],"BuildNewBaseState")
+     r.ClientStrategicReady=len(cs)>0&&!strings.Contains(cs[len(cs)-1],"CoopState")&&!strings.Contains(cs[len(cs)-1],"BuildNewBaseState")
+     if r.HostStrategicReady&&r.ClientStrategicReady{break}
+   }
+   time.Sleep(250*time.Millisecond)
+ }
+ hostGeo,ge:=host.run(map[string]interface{}{"cmd":"geo_state"})
+ if ge==nil{
+  r.HostWorldObserved=true
+  r.HostGeo=map[string]interface{}{"time":hostGeo["time"],"funds":hostGeo["funds"],"campaignType":hostGeo["campaignType"],"bases":hostGeo["bases"],"discoveredResearch":hostGeo["discoveredResearch"]}
+ }else{r.ClientObservation+=" host-geo:"+ge.Error()}
+ clientGeo,ge:=client.run(map[string]interface{}{"cmd":"geo_state"})
+ if ge==nil{
+  r.ClientWorldObserved=true
+  r.ClientGeo=map[string]interface{}{"time":clientGeo["time"],"funds":clientGeo["funds"],"campaignType":clientGeo["campaignType"],"bases":clientGeo["bases"],"discoveredResearch":clientGeo["discoveredResearch"]}
+ }else{r.ClientObservation+=" client-geo:"+ge.Error()}
+ if r.HostWorldObserved&&r.ClientWorldObserved{
+  h,_:=json.Marshal(r.HostGeo["time"]);c,_:=json.Marshal(r.ClientGeo["time"])
+  r.WorldClockEqual=string(h)==string(c)
+ }
  // Still no shared world checksum or tactical turn-by-turn equivalence.
  // Distinct single-player saves in a co-op lobby are not proof of sync.
  // A host base in a real save is NOT proof of synchronized campaign,
