@@ -19,6 +19,9 @@ SDL_AUDIODRIVER=dummy timeout --kill-after=2s 29s \
 debugger=$!
 sleep 6
 printf 'CLICK 420 200\n' >> "$dest/commands.txt"
+sleep 2
+# Reproduce the FIRST fatal: this is New Battle CONFIRM, not merely the menu.
+printf 'CLICK 116 368\n' >> "$dest/commands.txt"
 wait "$debugger" || echo "gdb_exit=$?" > "$dest/gdb-exit.txt"
 # A missing backtrace is an open diagnostic, never treated as engine pass.
 grep -E 'Program received signal|Segmentation fault|^#([0-9]+) ' "$dest/gdb.log" \
