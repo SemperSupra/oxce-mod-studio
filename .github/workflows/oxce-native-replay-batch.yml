@@ -44,9 +44,17 @@ jobs:
           test ! -e .out/package/data/UFO
           test ! -e .out/package/data/TFTD
           sha256sum .out/package/openxcom-sf-rdte > .out/evidence/engine-sha256.txt
-      - name: Enforce source-first tactical inventory prerequisite
+      - name: Fetch pinned native-independent source-preflight artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: oxce-source-preflight-40937083889
+          run-id: 40937083889
+          github-token: ${{ github.token }}
+          path: .out/source-gate
+      - name: Require real negative-controlled source-preflight verdict
         run: |
-          echo 'Source-derived Go preflight successful: public workflow 40937083889 at exact original fixture SHA 63fc917f8da18b879ebed067bc099c3525394fb9' >> "$GITHUB_STEP_SUMMARY"
+          test -s .out/source-gate/preflight.json
+          node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync(".out/source-gate/preflight.json","utf8")); if(v.EvidenceClass!=="SOURCE_DERIVED_NECESSARY_FIXTURE_CHECK_NOT_ENGINE"||v.EngineExecuted!==false||v.GameplayQualified!==false||!Array.isArray(v.Missing)||v.Missing.length!==0)process.exit(1)'
       - name: Apply pinned original game-rule overlay without rebuilding the engine
         run: |
           git init .out/original-game-rules
