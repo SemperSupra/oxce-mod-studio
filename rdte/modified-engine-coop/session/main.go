@@ -14,6 +14,7 @@ import(
 type Result struct{
  SchemaVersion int
  EvidenceClass string
+ RequestedMode string
  RealMultiplayerQualified bool
  HostNewGameReached bool
  HostMenuReached bool
@@ -91,15 +92,20 @@ func(c *Client) waitState(expected string)([]string,error){
 }
 func main(){
  if len(os.Args)!=4{fmt.Fprintln(os.Stderr,"usage: session_probe <host-user> <client-user> <out.json>");os.Exit(2)}
- r:=Result{SchemaVersion:1,EvidenceClass:"REAL_COOP_ENGINE_SESSION_PROGRESS_NOT_ACCEPTANCE",Commands:[]string{}}
+ mode:=os.Getenv("SF_COOP_MODE")
+ if mode=="" {mode="separate"}
+ r:=Result{SchemaVersion:1,EvidenceClass:"REAL_COOP_ENGINE_SESSION_PROGRESS_NOT_ACCEPTANCE",RequestedMode:mode,Commands:[]string{}}
  defer func(){out,_:=json.MarshalIndent(r,"","  ");os.WriteFile(os.Args[3],append(out,'\n'),0644);fmt.Println(string(out))}()
+ if mode!="separate"&&mode!="shared" {r.FirstFailure="invalid-coop-mode";return}
  host,e:=dial(os.Args[1],"host");if e!=nil{r.FirstFailure="dial-host: "+e.Error();return};defer host.conn.Close()
  client,e:=dial(os.Args[2],"client");if e!=nil{r.FirstFailure="dial-client: "+e.Error();return};defer client.conn.Close()
  cmd:=func(c *Client,v map[string]interface{})(map[string]interface{},bool){
   r.Commands=append(r.Commands,c.name+":"+fmt.Sprint(v["cmd"]))
   out,e:=c.run(v);if e!=nil{r.FirstFailure=c.name+":"+e.Error();return out,false};return out,true
  }
- if _,ok:=cmd(host,map[string]interface{}{"cmd":"open_new_game","mode":"coop_separate"});!ok{return}
+ gameMode:="coop_separate"
+ if mode=="shared" {gameMode="coop_shared"}
+ if _,ok:=cmd(host,map[string]interface{}{"cmd":"open_new_game","mode":gameMode});!ok{return}
  r.HostStates,e=host.waitState("NewGameState");if e!=nil{r.FirstFailure="host-new-game-state: "+e.Error();return}
  r.HostNewGameReached=true
  if _,ok:=cmd(host,map[string]interface{}{"cmd":"newgame_ok"});!ok{return}
@@ -163,6 +169,7 @@ func main(){
  // proven synthetic land triangle, offset from the host's base location.
  // TestServer::place_first_base delegates to Globe::insideLand in RADIANS,
  // so 5 degrees east must be 5*pi/180, not a numeric 5.0 radians.
+ if mode=="separate" {
  r.ClientStates,e=client.waitState("BuildNewBaseState")
  if e!=nil{r.FirstFailure="client-first-base-state: "+e.Error();return}
  if _,ok:=cmd(client,map[string]interface{}{"cmd":"place_first_base","lon":0.08726646259971647,"lat":0.0,"name":"Echo Station"});!ok{return}
@@ -175,6 +182,7 @@ func main(){
   if isObj&&record["name"]=="Echo Station"{r.ClientSavedBaseVisible=true}
  }
  if !r.ClientSavedBaseVisible{r.FirstFailure="client-named-base-not-visible";return}
+ } // SHARED has one authoritative host base; client must not place its own base.
  r.HostStates,e=host.states();if e!=nil{r.FirstFailure="post-client-base-host-state: "+e.Error();return}
  r.ClientStates,e=client.states();if e!=nil{r.FirstFailure="post-client-base-client-state: "+e.Error();return}
  // Allow the original host/client network state machines a short,
@@ -205,6 +213,12 @@ func main(){
   h,_:=json.Marshal(r.HostGeo["time"]);c,_:=json.Marshal(r.ClientGeo["time"])
   r.WorldClockEqual=string(h)==string(c)
   r.CampaignMode,r.CampaignModeConsistent=campaignMode(r.HostGeo,r.ClientGeo)
+  if mode=="shared" {
+   if bases,ok:=r.ClientGeo["bases"].([]interface{});ok {for _,entry:=range bases {
+    if base,ok:=entry.(map[string]interface{});ok&&base["name"]=="Signal Ridge" {r.ClientSeesHostBase=true;r.ClientSavedBaseVisible=true}
+   }
+   }
+  }
   hh,_:=json.Marshal(r.HostGeo);cc,_:=json.Marshal(r.ClientGeo)
   r.ObservedSubsetEqual=string(hh)==string(cc)
   // Equality of a selected read-only projection is NEVER tactical or shared-world acceptance.
