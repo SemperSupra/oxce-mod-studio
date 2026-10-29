@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {fileURLToPath} from 'node:url';
+import {validate,readCampaign} from './validate.mjs';
+const file=fileURLToPath(new URL('./campaign.json',import.meta.url));
+const base=readCampaign(file);
+const edit=(fn)=>{const g=JSON.parse(JSON.stringify(base));fn(g);return g;};
+test('original playable-campaign contract has no dangling references',()=>assert.deepEqual(validate(base),[]));
+test('unknown enemy is fail-closed',()=>assert.ok(validate(edit(g=>g.missions[0].enemies.push('unknown'))).includes('silent-relay:enemy:unknown')));
+test('unreachable final is rejected',()=>assert.ok(validate(edit(g=>g.missions[1].successNext=[])).includes('unreachable-final:successNext')));
+test('untranslated required narrative is rejected',()=>assert.ok(validate(edit(g=>delete g.locale.th.win)).includes('locale:th:win')));
+test('duplicate entity keys are rejected',()=>assert.ok(validate(edit(g=>g.roles.push({...g.roles[0]}))).includes('roles:duplicate-id')));
+test('cannot assert unverified engine compatibility',()=>assert.ok(validate(edit(g=>g.engineCompatible=true)).includes('unqualified-engine')));

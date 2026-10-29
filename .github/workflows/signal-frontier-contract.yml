@@ -1,0 +1,18 @@
+name: Signal Frontier original campaign contract
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/signal-frontier-contract.yml"
+      - "rdte/signal-frontier/**"
+permissions:
+  contents: read
+jobs:
+  campaign-contract:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - run: node --version && node --test rdte/signal-frontier/campaign.test.mjs

@@ -1,0 +1,286 @@
+{
+  "schemaVersion": 1,
+  "title": "Signal Frontier",
+  "world": "Aster Vale",
+  "faction": "Signal Service",
+  "originalContent": true,
+  "engineCompatible": false,
+  "gameplayQualified": false,
+  "designTargetMinutes": [
+    30,
+    45
+  ],
+  "sectors": [
+    {
+      "id": "salt-plain",
+      "label": "Salt Plain",
+      "biome": "salt-dunes",
+      "threat": 1
+    },
+    {
+      "id": "glasswood",
+      "label": "Glasswood Grove",
+      "biome": "glasswood",
+      "threat": 2
+    },
+    {
+      "id": "relay-ridge",
+      "label": "Relay Ridge",
+      "biome": "research-habitat",
+      "threat": 2
+    }
+  ],
+  "roles": [
+    {
+      "id": "scout",
+      "label": "Survey Scout",
+      "hp": 34,
+      "ap": 52
+    },
+    {
+      "id": "engineer",
+      "label": "Field Engineer",
+      "hp": 38,
+      "ap": 46
+    },
+    {
+      "id": "medic",
+      "label": "Rescue Medic",
+      "hp": 32,
+      "ap": 54
+    },
+    {
+      "id": "guardian",
+      "label": "Relay Guardian",
+      "hp": 48,
+      "ap": 38
+    }
+  ],
+  "enemies": [
+    {
+      "id": "probe",
+      "role": "recon",
+      "hp": 22,
+      "ai": "evade-and-report"
+    },
+    {
+      "id": "sentry",
+      "role": "defense",
+      "hp": 42,
+      "ai": "cover-and-flank"
+    }
+  ],
+  "equipment": [
+    {
+      "id": "scanner",
+      "kind": "utility",
+      "power": 0
+    },
+    {
+      "id": "pulse-emitter",
+      "kind": "weapon",
+      "power": 18
+    },
+    {
+      "id": "recovery-net",
+      "kind": "nonlethal",
+      "power": 8
+    },
+    {
+      "id": "field-plating",
+      "kind": "armor",
+      "power": 3
+    },
+    {
+      "id": "charged-cell",
+      "kind": "ammo",
+      "power": 0
+    }
+  ],
+  "crafts": [
+    {
+      "id": "swiftwing",
+      "role": "intercept",
+      "slots": 4
+    },
+    {
+      "id": "windward",
+      "role": "transport",
+      "slots": 6
+    }
+  ],
+  "research": [
+    {
+      "id": "quiet-array-signals",
+      "requires": [],
+      "cost": 3
+    },
+    {
+      "id": "pulse-coupling",
+      "requires": [
+        "quiet-array-signals"
+      ],
+      "cost": 5
+    },
+    {
+      "id": "rescue-protocols",
+      "requires": [
+        "quiet-array-signals"
+      ],
+      "cost": 4
+    }
+  ],
+  "manufacture": [
+    {
+      "id": "charged-cell",
+      "requiresResearch": "pulse-coupling",
+      "output": "charged-cell",
+      "quantity": 2,
+      "cost": 30
+    },
+    {
+      "id": "field-plating",
+      "requiresResearch": "rescue-protocols",
+      "output": "field-plating",
+      "quantity": 1,
+      "cost": 50
+    }
+  ],
+  "missions": [
+    {
+      "id": "silent-relay",
+      "sector": "relay-ridge",
+      "kind": "recovery",
+      "map": "relay-site",
+      "seed": 4701,
+      "enemies": [
+        "probe"
+      ],
+      "team": [
+        "scout",
+        "engineer",
+        "medic",
+        "guardian"
+      ],
+      "objectives": [
+        "scan-relay",
+        "extract-recorder"
+      ],
+      "successNext": [
+        "glasswood-echo"
+      ],
+      "failureNext": [
+        "glasswood-echo"
+      ],
+      "alternateWin": "capture-probe"
+    },
+    {
+      "id": "glasswood-echo",
+      "sector": "glasswood",
+      "kind": "interdiction",
+      "map": "glasswood-site",
+      "seed": 4702,
+      "enemies": [
+        "probe",
+        "sentry"
+      ],
+      "team": [
+        "scout",
+        "engineer",
+        "medic",
+        "guardian"
+      ],
+      "objectives": [
+        "protect-beacon",
+        "disable-sentry"
+      ],
+      "successNext": [
+        "quiet-array-choice"
+      ],
+      "failureNext": [
+        "quiet-array-choice"
+      ],
+      "alternateWin": "jam-sentry"
+    },
+    {
+      "id": "quiet-array-choice",
+      "sector": "salt-plain",
+      "kind": "final",
+      "map": "salt-plain-site",
+      "seed": 4703,
+      "enemies": [
+        "sentry"
+      ],
+      "team": [
+        "scout",
+        "engineer",
+        "medic",
+        "guardian"
+      ],
+      "objectives": [
+        "reach-vault",
+        "choose-containment"
+      ],
+      "successNext": [],
+      "failureNext": [],
+      "alternateWin": "restore-grid"
+    }
+  ],
+  "objectives": [
+    "scan-relay",
+    "extract-recorder",
+    "capture-probe",
+    "protect-beacon",
+    "disable-sentry",
+    "jam-sentry",
+    "reach-vault",
+    "choose-containment",
+    "restore-grid"
+  ],
+  "maps": [
+    {
+      "id": "relay-site",
+      "biome": "research-habitat",
+      "dimensions": [
+        10,
+        10,
+        1
+      ]
+    },
+    {
+      "id": "glasswood-site",
+      "biome": "glasswood",
+      "dimensions": [
+        10,
+        10,
+        2
+      ]
+    },
+    {
+      "id": "salt-plain-site",
+      "biome": "salt-dunes",
+      "dimensions": [
+        10,
+        10,
+        1
+      ]
+    }
+  ],
+  "locale": {
+    "en-US": {
+      "title": "Signal Frontier",
+      "begin": "Aster Vale needs a response.",
+      "win": "The frontier heard your answer."
+    },
+    "de": {
+      "title": "Signal Frontier",
+      "begin": "Aster Vale braucht Hilfe.",
+      "win": "Die Grenzwelt hat deine Antwort gehört."
+    },
+    "th": {
+      "title": "ซิกนัลฟรอนเทียร์",
+      "begin": "แอสเทอร์เวลต้องการความช่วยเหลือ",
+      "win": "ผู้คนได้รับคำตอบจากคุณแล้ว"
+    }
+  }
+}
