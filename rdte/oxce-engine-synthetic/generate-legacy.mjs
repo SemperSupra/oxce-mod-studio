@@ -64,6 +64,18 @@ const sfMap=Buffer.alloc(403);
 sfMap[0]=10;sfMap[1]=10;sfMap[2]=1;
 for(let tile=0;tile<100;tile++)sfMap[3+tile*4]=1;
 put('MAPS/SFREL00.MAP',sfMap);
+// Source-derived original 24-byte route-node records (no commercial maps).
+const sfRoutes=Buffer.alloc(96);
+for(let n=0;n<4;n++){
+  const b=n*24;
+  sfRoutes[b]=2+n;
+  sfRoutes[b+1]=2+n;
+  for(let k=0;k<5;k++)sfRoutes[b+4+k*3]=255;
+  sfRoutes[b+20]=n<2?1:0;
+  sfRoutes[b+23]=1;
+}
+put('ROUTES/SFREL00.RMP',sfRoutes);
+
 
 
 for(const n of ['BIGOBS','FLOOROB','HANDOB']) blankPck('UNITS',n,512);
