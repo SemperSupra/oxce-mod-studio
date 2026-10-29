@@ -1,0 +1,22 @@
+name: Signal Frontier three-audience contract
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/signal-frontier-audiences.yml"
+      - "rdte/signal-frontier-audiences/**"
+permissions:
+  contents: read
+jobs:
+  audience-contract:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - run: cd rdte/signal-frontier-audiences && go test -race ./...
