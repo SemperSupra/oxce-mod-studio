@@ -44,6 +44,17 @@ jobs:
           test ! -e .out/package/data/UFO
           test ! -e .out/package/data/TFTD
           sha256sum .out/package/openxcom-sf-rdte > .out/evidence/engine-sha256.txt
+      - name: Apply pinned original game-rule overlay without rebuilding the engine
+        run: |
+          git init .out/original-game-rules
+          git -C .out/original-game-rules remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
+          git -C .out/original-game-rules fetch --depth 1 origin e7eae0f6efe72e3ab5d59870d7d68f49f8913f02
+          git -C .out/original-game-rules checkout --detach FETCH_HEAD
+          test "$(git -C .out/original-game-rules rev-parse HEAD)" = "e7eae0f6efe72e3ab5d59870d7d68f49f8913f02"
+          node .out/original-game-rules/rdte/oxce-engine-synthetic/generate.mjs .out/new-rules
+          cp .out/new-rules/user/mods/rdte-synthetic-master/Ruleset/10-synthetic.rul .out/package/user/mods/rdte-synthetic-master/Ruleset/
+          cp .out/new-rules/user/mods/rdte-synthetic-master/Language/en-US.yml .out/package/user/mods/rdte-synthetic-master/Language/
+          sha256sum .out/package/user/mods/rdte-synthetic-master/Ruleset/10-synthetic.rul > .out/evidence/original-game-rules.sha256
       - name: Install runtime dependencies (no C++ compilation)
         run: |
           sudo apt-get update -qq
@@ -53,7 +64,7 @@ jobs:
       - name: Execute three independent game-window scenarios using one binary
         shell: bash
         run: |
-          for scenario in boot new-game new-battle; do
+          for scenario in boot new-game new-battle new-game-confirm; do
             echo "Scenario $scenario"
             timeout --kill-after=2s 16s xvfb-run -a bash rdte/oxce-batch/run-case.sh \
               .out/package "$scenario" ".out/evidence/$scenario" || true
