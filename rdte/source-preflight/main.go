@@ -86,7 +86,7 @@ func Check(rules,config []byte,root string) Verdict {
   }
   for _,id:=range []string{"STR_BELT","STR_BACK_PACK"} {
     rec:=inventoryRecord(invs,id)
-    require(rec!=""&&matches(rec,"(?m)^\\s+type:\\s+0\\s*$")&&matches(rec,"(?m)^\\s+slots:\\s+\\["),
+    require(rec!=""&&matches(rec,"(?m)^\\s+type:\\s+0\\s*$")&&matches(rec,"(?m)^\\s+slots:\\s+\\[\\["),
       "invs:"+id+":slots")
   }
   armor:=block(text,"armors")
