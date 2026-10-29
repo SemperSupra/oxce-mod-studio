@@ -136,6 +136,9 @@ writeFileSync(join(mod,'Ruleset/10-synthetic.rul'),[
   '  countryColor: 206',
   '  baseColor: 181',
   '  oceanPalette: 12',
+  '# An original triangle around zero degrees, independently designed for base placement.',
+  '  polygons:',
+  '    - [0, -15, -15, 15, -15, 0, 15]',
   '  textures:',
   '    - id: 0',
   '      terrain: []',
@@ -242,6 +245,8 @@ writeFileSync(join(mod,'Language/en-US.yml'),[
   '  STR_SF_SURVEY_SHELL: "Recovered survey shell"',
   '  STR_OK: "Confirm"',
   '  STR_CANCEL: "Cancel"',
+  '  STR_SELECT_SITE_FOR_NEW_BASE: "Select a site on Aster Vale"',
+  '  STR_NEW_BASE: "New frontier base"',
   ''
 ].join('\n'));
 // Explicitly enable ONLY the synthetic master, and do not import "UFO" or "TFTD".
