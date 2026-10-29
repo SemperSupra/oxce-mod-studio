@@ -62,6 +62,10 @@ func Check(rules,config []byte,root string) Verdict {
   require(matches(countries,"(?m)^\\s+areas:\\s*$"),"countries:areas")
   require(matches(regions,"(?m)^\\s+- type:\\s+\\S+"),"regions:nonempty")
   require(matches(regions,"(?m)^\\s+areas:\\s*$"),"regions:areas")
+  // Public RuleRegion::insideRegion excludes 0 when synthetic span starts at +10°.
+  // Both host origin (0,0) and client +5° must be inside authored bounds.
+  require(strings.Contains(regions,"- [0, 360, -65, 65]"),"regions:contains-origin")
+  require(strings.Contains(countries,"- [0, 360, -65, 65]"),"countries:contains-origin")
   for _,field:=range []string{"facilities","crafts","items"} {
     require(matches(base,"(?m)^\\s+"+field+":\\s*"),"startingBase:"+field)
   }
