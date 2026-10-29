@@ -20,6 +20,7 @@ if kill -0 "$pid" 2>/dev/null; then
  new-game) printf 'CLICK 220 200\n' >> "$target/commands.txt" ;;
  new-battle) printf 'CLICK 420 200\n' >> "$target/commands.txt" ;;
  new-battle-confirm) printf 'CLICK 420 200\n' >> "$target/commands.txt"; sleep 2; printf 'CLICK 116 368\n' >> "$target/commands.txt" ;;
+ new-battle-briefing-continue) printf 'CLICK 420 200\n' >> "$target/commands.txt"; sleep 2; printf 'CLICK 116 368\n' >> "$target/commands.txt"; sleep 2; printf 'CLICK 640 660\n' >> "$target/commands.txt" ;;
  new-game-confirm) printf 'CLICK 220 200\n' >> "$target/commands.txt"; sleep 2; printf 'CLICK 238 344\n' >> "$target/commands.txt" ;;
  *) echo 'invalid scenario' >&2; exit 2 ;;
  esac
