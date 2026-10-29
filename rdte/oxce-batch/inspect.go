@@ -7,7 +7,6 @@ import (
  "fmt"
  "os"
  "path/filepath"
- "sort"
  "strings"
 )
 type Control struct {Role string `json:"role"`; Label string `json:"label"`}
