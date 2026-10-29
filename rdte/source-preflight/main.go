@@ -51,7 +51,7 @@ func Check(rules,config []byte,root string) Verdict {
   for _,field:=range []string{"facilities","crafts","items"} {
     require(matches(base,"(?m)^\\s+"+field+":\\s*"),"startingBase:"+field)
   }
-  for _,name:=range []string{"mainMenu","newGameMenu","newBattleMenu","geoscape","pauseMenu","saveMenus,"baseNaming","placeFacility","selectFacility","basescape"} {
+  for _,name:=range []string{"mainMenu","newGameMenu","newBattleMenu","geoscape","pauseMenu","saveMenus","baseNaming","placeFacility","selectFacility","basescape"} {
     require(matches(interfaces,"(?m)^\\s+- type:\\s+"+name+"\\s*$"),"interfaces:"+name)
   }
   for _,name:=range []string{"slackingIndicator","trainingIndicator"} {
