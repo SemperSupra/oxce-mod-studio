@@ -309,10 +309,10 @@ writeFileSync(join(mod,'Language/en-US.yml'),[
   '  STR_CANCEL: "Cancel"',
   '  STR_SELECT_SITE_FOR_NEW_BASE: "Select a site on Aster Vale"',
   '  STR_NEW_BASE: "New frontier base"',
-  '  STR_BASE_NAME: "Name the Signal Service base"',,
-  '  STR_SELECT_POSITION_FOR_ACCESS_LIFT: "Choose the relay lift location"',,
-  '  STR_INSTALLATION: "Signal Service installation"',,
-  '  STR_SF_ACCESS_LIFT: "Frontier access lift"'
+  '  STR_BASE_NAME: "Name the Signal Service base"',
+  '  STR_SELECT_POSITION_FOR_ACCESS_LIFT: "Choose the relay lift location"',
+  '  STR_INSTALLATION: "Signal Service installation"',
+  '  STR_SF_ACCESS_LIFT: "Frontier access lift"',
   ''
 ].join('\n'));
 // Explicitly enable ONLY the synthetic master, and do not import "UFO" or "TFTD".
