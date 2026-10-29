@@ -81,6 +81,9 @@ jobs:
           sleep 3
           go run rdte/modified-engine-coop/probe/main.go .out/host-user .out/client-user .out/evidence/two-process.json > .out/evidence/probe-stdout.log 2>&1
           echo "probe_exit=$?" >> .out/evidence/exit.txt
+          # Batch: reuse these same two real binaries and user profiles for the next dependent gate.
+          go run rdte/modified-engine-coop/session/main.go .out/host-user .out/client-user .out/evidence/session-progress.json > .out/evidence/session-stdout.log 2>&1
+          echo "session_probe_exit=$?" >> .out/evidence/exit.txt
           wait "$HOST" || echo "host_exit=$?" >> .out/evidence/exit.txt
           wait "$CLIENT" || echo "client_exit=$?" >> .out/evidence/exit.txt
           cp .out/host-user/openxcom.log .out/evidence/host-engine.log || true
@@ -100,3 +103,14 @@ jobs:
         run: |
           test -s .out/evidence/two-process.json
           test "$(grep -c '"Pong": true' .out/evidence/two-process.json)" = 2
+      - name: Classify dependent host/join scenario separately
+        if: always()
+        shell: bash
+        run: |
+          test -s .out/evidence/session-progress.json
+          if grep -Eq '"FirstFailure": "[^"]+' .out/evidence/session-progress.json; then
+            echo 'SESSION_PROGRESS=FIRST_FAILURE_NOT_MULTIPLAYER_ACCEPTANCE' >> "$GITHUB_STEP_SUMMARY"
+            grep -E '"FirstFailure"|"HostNewGameReached"|"ClientJoinAccepted"' .out/evidence/session-progress.json >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo 'SESSION_PROGRESS=NO_FIRST_FAILURE_RECORDED_BUT_PLAYABILITY_UNQUALIFIED' >> "$GITHUB_STEP_SUMMARY"
