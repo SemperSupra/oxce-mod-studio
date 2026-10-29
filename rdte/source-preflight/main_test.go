@@ -5,7 +5,7 @@ import (
   "strings"
   "testing"
 )
-const fixture = "musics:\n  - type: GMGEO1\ncrafts:\n  - type: STR_SF_RESPONDER\nalienDeployments:\n  - type: STR_SF_RELAY_DEPLOYMENT\nterrains:\n  - name: SF_RELAY\nsoldiers:\n  - type: STR_SF_SURVEYOR\narmors:\n  - type: STR_SF_SURVEY_ARMOR\nalienRaces:\n  - id: STR_SF_QUIET_ARRAY\nunits:\n  - type: STR_SF_PROBE\nalienItemLevels:\n  - [0, 0, 0]\ncountries:\n  - type: STR_SF_COUNCIL\n    fundingBase: 500\n    areas:\n      - [10, 340, -65, 65]\nregions:\n  - type: STR_SF_AREA\n    areas:\n      - [10, 340, -65, 65]\nstartingBase:\n  facilities: []\n  crafts: []\n  items: {}\ninterfaces:\n  - type: mainMenu\n  - type: newGameMenu\n  - type: newBattleMenu\n  - type: geoscape\n    elements:\n      - id: slackingIndicator\n      - id: trainingIndicator\n  - type: pauseMenu\n  - type: saveMenus\nglobe:\n  textures:\n    - id: 0\n      terrain: []\n"
+const fixture = "musics:\n  - type: GMGEO1\ncrafts:\n  - type: STR_SF_RESPONDER\nalienDeployments:\n  - type: STR_SF_RELAY_DEPLOYMENT\nterrains:\n  - name: SF_RELAY\nsoldiers:\n  - type: STR_SF_SURVEYOR\narmors:\n  - type: STR_SF_SURVEY_ARMOR\n    corpseBattle: [STR_SF_SURVEY_SHELL]\n    loftempsSet: [3]\nalienRaces:\n  - id: STR_SF_QUIET_ARRAY\nitems:\n  - type: STR_SF_SURVEY_SHELL\nunits:\n  - type: STR_SF_PROBE\nalienItemLevels:\n  - [0, 0, 0]\ncountries:\n  - type: STR_SF_COUNCIL\n    fundingBase: 500\n    areas:\n      - [10, 340, -65, 65]\nregions:\n  - type: STR_SF_AREA\n    areas:\n      - [10, 340, -65, 65]\nstartingBase:\n  facilities: []\n  crafts: []\n  items: {}\ninterfaces:\n  - type: mainMenu\n  - type: newGameMenu\n  - type: newBattleMenu\n  - type: geoscape\n    elements:\n      - id: slackingIndicator\n      - id: trainingIndicator\n  - type: pauseMenu\n  - type: saveMenus\nglobe:\n  textures:\n    - id: 0\n      terrain: []\n"
 
 func validRoot(t *testing.T) string{
   t.Helper()
@@ -21,6 +21,11 @@ func validRoot(t *testing.T) string{
   wav:=make([]byte,48);copy(wav,"RIFF");copy(wav[8:],"WAVE")
   for _,name:=range []string{"gmgeo1.wav","gminter.wav","gmtactic1.wav","gmenbase.wav"}{
     if err:=os.WriteFile(filepath.Join(sound,name),wav,0600);err!=nil{t.Fatal(err)}
+  }
+  unit:=filepath.Join(root,"data","SYNTHETIC","UNITS")
+  if err:=os.MkdirAll(unit,0700);err!=nil{t.Fatal(err)}
+  for _,ext:=range []string{".PCK",".TAB"}{
+    if err:=os.WriteFile(filepath.Join(unit,"SIGNALRELAY"+ext),[]byte{0,1},0600);err!=nil{t.Fatal(err)}
   }
   return root
 }
@@ -47,6 +52,14 @@ func TestArtAndRetailDirectoryGuards(t *testing.T){
   v:=Check([]byte(fixture),[]byte("playIntro: false"),root)
   errors:=strings.Join(v.Missing,",")
   if !strings.Contains(errors,"original-coop-art:base.png")||!strings.Contains(errors,"no-retail-dir:UFO"){t.Fatal(v)}
+}
+func TestArmorCorpseAndUnitSheetRequired(t *testing.T){
+ root:=validRoot(t)
+ os.Remove(filepath.Join(root,"data","SYNTHETIC","UNITS","SIGNALRELAY.TAB"))
+ bad:=strings.Replace(fixture,"    corpseBattle: [STR_SF_SURVEY_SHELL]","    corpseBattle: []",1)
+ v:=Check([]byte(bad),[]byte("playIntro: false"),root)
+ errors:=strings.Join(v.Missing,",")
+ if !strings.Contains(errors,"armors:one-corpse")||!strings.Contains(errors,"units:signal-relay.TAB"){t.Fatal(v)}
 }
 func TestTacticalAndMusicMissingFailClosed(t *testing.T){
   bad:=strings.Replace(fixture,"  - type: STR_SF_RESPONDER","  - type: UNKNOWN",1)

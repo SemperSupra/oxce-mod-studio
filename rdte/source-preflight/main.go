@@ -58,6 +58,14 @@ func Check(rules,config []byte,root string) Verdict {
     require(matches(interfaces,"(?m)^\\s+- id:\\s+"+name+"\\s*$"),"interfaces:"+name)
   }
   require(matches(globe,"(?m)^\\s+textures:\\s*$")&&matches(globe,"(?m)^\\s+- id:\\s+0\\s*$"),"globe:nonempty-textures")
+  armor:=block(text,"armors")
+  require(matches(armor,"(?m)^\\s+corpseBattle:\\s*\\[STR_SF_SURVEY_SHELL\\]\\s*$"),"armors:one-corpse")
+  require(matches(armor,"(?m)^\\s+loftempsSet:\\s*\\[3\\]\\s*$"),"armors:one-loft-template")
+  require(strings.Contains(block(text,"items"),"type: STR_SF_SURVEY_SHELL"),"items:survey-shell")
+  for _,extension:=range []string{".PCK",".TAB"}{
+    b,err:=os.ReadFile(filepath.Join(root,"data","SYNTHETIC","UNITS","SIGNALRELAY"+extension))
+    require(err==nil&&len(b)>0,"units:signal-relay"+extension)
+  }
   require(bytes.Contains(config,[]byte("playIntro: false")),"config:disable-retail-intro")
   for _,rule:=range []struct{key,expr string}{
     {"musics:GMGEO1", "musics"},
