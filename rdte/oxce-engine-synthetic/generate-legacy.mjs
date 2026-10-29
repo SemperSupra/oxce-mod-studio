@@ -58,6 +58,7 @@ const blankSpk=Buffer.from([255,255,0,125]);
 for(const name of ['TAC01.SCR','DETBORD.PCK','DETBORD2.PCK','ICONS.PCK','MEDIBORD.PCK','SCANBORD.PCK','UNIBORD.PCK'])put('UFOGRAPH/'+name,blankSpk);
 blankPck('TERRAIN','BLANKS',512);
 for(const n of ['BIGOBS','FLOOROB','HANDOB']) blankPck('UNITS',n,512);
+blankPck('UNITS','SIGNALRELAY',512);
 
 // Independent original emergency-response loop (not existing soundtrack).
 // Deterministic 2s mono 16-bit PCM RIFF used as a native source-format probe.
