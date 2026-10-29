@@ -35,6 +35,9 @@ type Result struct{
  HostGeo map[string]interface{}
  ClientGeo map[string]interface{}
  WorldClockEqual bool
+ CampaignMode string
+ CampaignModeConsistent bool
+ ObservedSubsetEqual bool
  HostStrategicReady bool
  ClientStrategicReady bool
  ClientObservation string
@@ -42,6 +45,16 @@ type Result struct{
  ClientStates []string
  FirstFailure string
  Commands []string
+}
+// The pinned co-op TestServer reports campaignType 0=Separate, 1=Shared.
+// A separate-campaign base mismatch is not evidence of SHARED replication failure.
+func campaignMode(host,client map[string]interface{}) (string,bool) {
+  h,hOK:=host["campaignType"].(float64)
+  c,cOK:=client["campaignType"].(float64)
+  if !hOK||!cOK||h!=c{return "UNKNOWN",false}
+  if h==0{return "SEPARATE",true}
+  if h==1{return "SHARED",true}
+  return "UNKNOWN",false
 }
 type Client struct{name string; conn net.Conn; reader *bufio.Reader}
 func dial(path,name string)(*Client,error){
@@ -86,7 +99,7 @@ func main(){
   r.Commands=append(r.Commands,c.name+":"+fmt.Sprint(v["cmd"]))
   out,e:=c.run(v);if e!=nil{r.FirstFailure=c.name+":"+e.Error();return out,false};return out,true
  }
- if _,ok:=cmd(host,map[string]interface{}{"cmd":"open_new_game","mode":"coop"});!ok{return}
+ if _,ok:=cmd(host,map[string]interface{}{"cmd":"open_new_game","mode":"coop_separate"});!ok{return}
  r.HostStates,e=host.waitState("NewGameState");if e!=nil{r.FirstFailure="host-new-game-state: "+e.Error();return}
  r.HostNewGameReached=true
  if _,ok:=cmd(host,map[string]interface{}{"cmd":"newgame_ok"});!ok{return}
@@ -191,6 +204,10 @@ func main(){
  if r.HostWorldObserved&&r.ClientWorldObserved{
   h,_:=json.Marshal(r.HostGeo["time"]);c,_:=json.Marshal(r.ClientGeo["time"])
   r.WorldClockEqual=string(h)==string(c)
+  r.CampaignMode,r.CampaignModeConsistent=campaignMode(r.HostGeo,r.ClientGeo)
+  hh,_:=json.Marshal(r.HostGeo);cc,_:=json.Marshal(r.ClientGeo)
+  r.ObservedSubsetEqual=string(hh)==string(cc)
+  // Equality of a selected read-only projection is NEVER tactical or shared-world acceptance.
  }
  // Still no shared world checksum or tactical turn-by-turn equivalence.
  // Distinct single-player saves in a co-op lobby are not proof of sync.
