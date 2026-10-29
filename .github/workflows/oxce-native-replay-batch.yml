@@ -48,13 +48,19 @@ jobs:
         run: |
           git init .out/original-game-rules
           git -C .out/original-game-rules remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
-          git -C .out/original-game-rules fetch --depth 1 origin 45efab43202122cb5525d4a396dfaa90b6bda87d
+          git -C .out/original-game-rules fetch --depth 1 origin d838d38afb6da8deb3202a22f17a696f5641a345
           git -C .out/original-game-rules checkout --detach FETCH_HEAD
-          test "$(git -C .out/original-game-rules rev-parse HEAD)" = "45efab43202122cb5525d4a396dfaa90b6bda87d"
+          test "$(git -C .out/original-game-rules rev-parse HEAD)" = "d838d38afb6da8deb3202a22f17a696f5641a345"
           node .out/original-game-rules/rdte/oxce-engine-synthetic/generate.mjs .out/new-rules
+          node --check .out/original-game-rules/rdte/oxce-engine-synthetic/generate-legacy.mjs
+          node .out/original-game-rules/rdte/oxce-engine-synthetic/generate-legacy.mjs .out/package/data/SYNTHETIC
+          test -s .out/package/data/SYNTHETIC/SOUND/gmgeo1.wav
+          mkdir -p .out/package/user/mods/rdte-synthetic-master/SoldierName
+          cp -a .out/new-rules/user/mods/rdte-synthetic-master/SoldierName/. .out/package/user/mods/rdte-synthetic-master/SoldierName/
           cp .out/new-rules/user/mods/rdte-synthetic-master/Ruleset/10-synthetic.rul .out/package/user/mods/rdte-synthetic-master/Ruleset/
           cp .out/new-rules/user/mods/rdte-synthetic-master/Language/en-US.yml .out/package/user/mods/rdte-synthetic-master/Language/
           sha256sum .out/package/user/mods/rdte-synthetic-master/Ruleset/10-synthetic.rul > .out/evidence/original-game-rules.sha256
+          sha256sum .out/package/data/SYNTHETIC/SOUND/*.wav .out/package/user/mods/rdte-synthetic-master/SoldierName/*.nam > .out/evidence/original-media-name-ledger.sha256
       - name: Install runtime dependencies (no C++ compilation)
         run: |
           sudo apt-get update -qq
