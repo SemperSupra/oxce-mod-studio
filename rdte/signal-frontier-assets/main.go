@@ -120,8 +120,7 @@ func generate(root string) error{
   m.Files=append(m.Files,asset{Path:p,Bytes:len(raw),SHA256:hex.EncodeToString(sum[:])})
  }
  b,err:=json.MarshalIndent(m,"","  ");if err!=nil{return err}
- return os.WriteFile(filepath.Join(root,"manifest.json"),append(b,'
-'),0644)
+ return os.WriteFile(filepath.Join(root,"manifest.json"),append(b,byte(10)),0644)
 }
 func main(){
  out:=".out/signal-frontier-assets";if len(os.Args)>1{out=os.Args[1]}
