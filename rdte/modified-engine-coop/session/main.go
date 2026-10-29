@@ -143,9 +143,11 @@ func main(){
  // The native separate-coop client must place its own first base before
  // the host's wait-for-bases dialogue can settle the campaign. Use the same
  // proven synthetic land triangle, offset from the host's base location.
+ // TestServer::place_first_base delegates to Globe::insideLand in RADIANS,
+ // so 5 degrees east must be 5*pi/180, not a numeric 5.0 radians.
  r.ClientStates,e=client.waitState("BuildNewBaseState")
  if e!=nil{r.FirstFailure="client-first-base-state: "+e.Error();return}
- if _,ok:=cmd(client,map[string]interface{}{"cmd":"place_first_base","lon":5.0,"lat":0.0,"name":"Echo Station"});!ok{return}
+ if _,ok:=cmd(client,map[string]interface{}{"cmd":"place_first_base","lon":0.08726646259971647,"lat":0.0,"name":"Echo Station"});!ok{return}
  r.ClientBaseNamed=true
  local,ok:=cmd(client,map[string]interface{}{"cmd":"get_soldiers"});if !ok{return}
  cb,exists:=local["bases"].([]interface{})
