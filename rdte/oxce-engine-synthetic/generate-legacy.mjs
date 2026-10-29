@@ -38,12 +38,12 @@ function blankPck(dir,name,frames=512) {
 }
 // Original 9-frame, 3x3 retro-futurist marker strip, encoded with Node stdlib.
 function markerPNG(){
-  const w=27,h=3,scan=Buffer.alloc(h*(1+4*w));
+  // OXCE Surface::loadImage accepts indexed 8-bit PNG, NOT RGBA.
+  const w=27,h=3,scan=Buffer.alloc(h*(1+w));
   for(let y=0;y<h;y++){
     for(let x=0;x<w;x++){
-      const i=y*(1+4*w)+1+x*4;
-      const on=(x%3===1||y===1);
-      scan[i]=on?36:0;scan[i+1]=on?205:0;scan[i+2]=on?244:0;scan[i+3]=on?255:0;
+      const i=y*(1+w)+1+x;
+      scan[i]=(x%3===1||y===1)?1:0;
     }
   }
   function crc32(src){
@@ -57,10 +57,13 @@ function markerPNG(){
     return Buffer.concat([len,kind,raw,check]);
   }
   const header=Buffer.alloc(13);
-  header.writeUInt32BE(w,0);header.writeUInt32BE(h,4);header[8]=8;header[9]=6;
+  header.writeUInt32BE(w,0);header.writeUInt32BE(h,4);header[8]=8;header[9]=3;
   return Buffer.concat([
     Buffer.from([137,80,78,71,13,10,26,10]),
-    chunk('IHDR',header),chunk('IDAT',deflateSync(scan)),chunk('IEND',Buffer.alloc(0))
+    chunk('IHDR',header),
+    chunk('PLTE',Buffer.from([0,0,0,36,205,244])),
+    chunk('tRNS',Buffer.from([0,255])),
+    chunk('IDAT',deflateSync(scan)),chunk('IEND',Buffer.alloc(0))
   ]);
 }
 put('multiplayer/globe-markers.png',markerPNG());
