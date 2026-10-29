@@ -89,6 +89,10 @@ func Check(rules,config []byte,root string) Verdict {
     require(rec!=""&&matches(rec,"(?m)^\\s+type:\\s+0\\s*$")&&matches(rec,"(?m)^\\s+slots:\\s+\\[\\["),
       "invs:"+id+":slots")
   }
+  // Pinned NewBattleState::btnOkClick resolves Mod::getAlienMission(getAlienMissionList().front()).
+  // Absence of a mission entry was the next native GDB first failure.
+  mission:=block(text,"alienMissions")
+  require(matches(mission,"(?m)^\\s+- type:\\s+STR_SF_SIGNAL_PATROL\\s*$"),"alienMissions:nonempty-synthetic-patrol")
   armor:=block(text,"armors")
   require(matches(armor,"(?m)^\\s+corpseBattle:\\s*\\[STR_SF_SURVEY_SHELL\\]\\s*$"),"armors:one-corpse")
   require(matches(armor,"(?m)^\\s+loftempsSet:\\s*\\[3\\]\\s*$"),"armors:one-loft-template")
