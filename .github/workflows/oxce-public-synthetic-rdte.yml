@@ -1,0 +1,130 @@
+name: Public OXCE 8.6.5 synthetic-master engine RDTE
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/oxce-public-synthetic-rdte.yml"
+      - "rdte/oxce-engine-synthetic/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oxce-public-synthetic-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  actual-engine-smoke:
+    name: Build actual OXCE and attempt synthetic engine load
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout independently authored public fixture
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Record provenance and zero-cost runner class
+        run: |
+          mkdir -p .out/rdte-evidence
+          printf 'PUBLIC_SOURCE_SHA=%s\nEVENT=%s\nRUN_ID=%s\nRUN_ATTEMPT=%s\nRUNNER_NAME=%s\n' \
+            "${GITHUB_SHA}" "${GITHUB_EVENT_NAME}" "${GITHUB_RUN_ID}" \
+            "${GITHUB_RUN_ATTEMPT}" "${RUNNER_NAME}" | tee .out/rdte-evidence/provenance.txt
+          printf 'UPSTREAM=MeridianOXC/OpenXcom@668880bb756852f0734cfe92e438e400080a2f4d\n' >> .out/rdte-evidence/provenance.txt
+
+      - name: Install public, non-proprietary build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config git \
+            libsdl1.2-dev libsdl-image1.2-dev libsdl-gfx1.2-dev \
+            libsdl-mixer1.2-dev libyaml-cpp-dev libboost-dev \
+            libgl1-mesa-dev xvfb xauth
+
+      - name: Fetch pinned upstream OXCE 8.6.5 source publicly
+        run: |
+          git init .out/upstream
+          git -C .out/upstream remote add origin https://github.com/MeridianOXC/OpenXcom.git
+          git -C .out/upstream fetch --depth 1 origin 668880bb756852f0734cfe92e438e400080a2f4d
+          git -C .out/upstream checkout --detach FETCH_HEAD
+          test "$(git -C .out/upstream rev-parse HEAD)" = "668880bb756852f0734cfe92e438e400080a2f4d"
+          git -C .out/upstream status --porcelain
+
+      - name: Configure and build *real engine* (record first failure)
+        id: build
+        shell: bash
+        run: |
+          set +e
+          cmake -S .out/upstream -B .out/oxce-build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_PACKAGE=OFF -DDEV_BUILD=OFF \
+            > .out/rdte-evidence/configure.log 2>&1
+          crc=$?
+          echo "configure_exit=$crc" | tee -a .out/rdte-evidence/exit.env
+          if [ "$crc" -eq 0 ]; then
+            cmake --build .out/oxce-build --parallel 4 > .out/rdte-evidence/build.log 2>&1
+            brc=$?
+          else
+            brc=125
+          fi
+          echo "build_exit=$brc" | tee -a .out/rdte-evidence/exit.env
+          if [ "$brc" -ne 0 ]; then
+            echo "OXCE_ENGINE_BUILD=FAIL" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "OXCE_ENGINE_BUILD=PASS" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit 0
+
+      - name: Generate synthetic master (no original game files)
+        if: always()
+        run: |
+          node rdte/oxce-engine-synthetic/generate.mjs .out/synthetic
+          cp -a .out/upstream/bin/common .out/synthetic/data/common
+          cp -a .out/upstream/bin/standard .out/synthetic/data/standard
+          test ! -e .out/synthetic/data/UFO
+          test ! -e .out/synthetic/data/TFTD
+          sha256sum .out/synthetic/user/mods/rdte-synthetic-master/metadata.yml \
+            .out/synthetic/user/mods/rdte-synthetic-master/Ruleset/*.rul \
+            > .out/rdte-evidence/synthetic-hashes.txt
+
+      - name: Attempt real engine startup with generated master
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          BIN=".out/oxce-build/bin/openxcom"
+          if [ ! -x "$BIN" ]; then
+            echo "engine_launch_exit=125" >> .out/rdte-evidence/exit.env
+            echo "native_launch_attempted=false" >> .out/rdte-evidence/exit.env
+            exit 0
+          fi
+          echo "native_launch_attempted=true" >> .out/rdte-evidence/exit.env
+          timeout --kill-after=5s 25s xvfb-run -a "$BIN" \
+            -data "$PWD/.out/synthetic/data" \
+            -user "$PWD/.out/synthetic/user" \
+            -config "$PWD/.out/synthetic/config" \
+            > .out/rdte-evidence/engine-stdout-stderr.log 2>&1
+          rc=$?
+          echo "engine_launch_exit=$rc" >> .out/rdte-evidence/exit.env
+          find .out/synthetic -maxdepth 5 -type f \
+            \( -iname '*openxcom*.log' -o -iname '*error*.log' \) -print \
+            -exec cp '{}' .out/rdte-evidence/ \; || true
+          echo "Native engine launch exit: $rc" >> "$GITHUB_STEP_SUMMARY"
+          tail -n 80 .out/rdte-evidence/engine-stdout-stderr.log || true
+          exit 0
+
+      - name: Classify evidence without false passing the engine
+        if: always()
+        shell: bash
+        run: |
+          cat .out/rdte-evidence/exit.env || true
+          echo "Engine smoke only: a 0/124 return is not automatically gameplay or engine-rule acceptance." >> "$GITHUB_STEP_SUMMARY"
+          echo "Original game assets were neither downloaded nor supplied." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload exact-run logs for independent review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oxce-native-synthetic-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .out/rdte-evidence/
+          retention-days: 7
+          if-no-files-found: warn
