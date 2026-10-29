@@ -48,9 +48,9 @@ jobs:
         run: |
           git init .out/original-game-rules
           git -C .out/original-game-rules remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
-          git -C .out/original-game-rules fetch --depth 1 origin e7eae0f6efe72e3ab5d59870d7d68f49f8913f02
+          git -C .out/original-game-rules fetch --depth 1 origin 45efab43202122cb5525d4a396dfaa90b6bda87d
           git -C .out/original-game-rules checkout --detach FETCH_HEAD
-          test "$(git -C .out/original-game-rules rev-parse HEAD)" = "e7eae0f6efe72e3ab5d59870d7d68f49f8913f02"
+          test "$(git -C .out/original-game-rules rev-parse HEAD)" = "45efab43202122cb5525d4a396dfaa90b6bda87d"
           node .out/original-game-rules/rdte/oxce-engine-synthetic/generate.mjs .out/new-rules
           cp .out/new-rules/user/mods/rdte-synthetic-master/Ruleset/10-synthetic.rul .out/package/user/mods/rdte-synthetic-master/Ruleset/
           cp .out/new-rules/user/mods/rdte-synthetic-master/Language/en-US.yml .out/package/user/mods/rdte-synthetic-master/Language/
