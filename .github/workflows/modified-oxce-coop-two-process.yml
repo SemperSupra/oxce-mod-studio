@@ -108,11 +108,32 @@ jobs:
           set +e
           DATA="$PWD/.out/synthetic/data"
           BIN="$PWD/.out/bin/openxcom-coop-sf-rdte"
-          OXC_TEST_PORT=0 SDL_AUDIODRIVER=dummy timeout 60s xvfb-run -a "$BIN" \
+          # A single display with readiness gating prevents xvfb-run -a double-start races.
+          # The runner and isolated X11 socket are short-lived, with TCP disabled.
+          DISPLAY_ID=":$((90 + GITHUB_RUN_ATTEMPT))"
+          Xvfb "$DISPLAY_ID" -screen 0 1280x800x24 -nolisten tcp \
+            > .out/evidence/xvfb.log 2>&1 &
+          XVFB=$!
+          trap 'kill "$XVFB" 2>/dev/null || true' EXIT
+          DISPLAY_SOCKET="/tmp/.X11-unix/X${DISPLAY_ID#:}"
+          READY=0
+          for i in $(seq 1 50); do
+            if test -S "$DISPLAY_SOCKET" && kill -0 "$XVFB" 2>/dev/null; then
+              READY=1
+              break
+            fi
+            sleep 0.2
+          done
+          if [ "$READY" != 1 ]; then
+            echo "xvfb_start=FAILED" >> .out/evidence/exit.txt
+            exit 0
+          fi
+          export DISPLAY="$DISPLAY_ID"
+          OXC_TEST_PORT=0 SDL_AUDIODRIVER=dummy timeout 60s "$BIN" \
             -data "$DATA" -user "$PWD/.out/host-user" -config "$PWD/.out/host-config" \
             > .out/evidence/host-stdout.log 2>&1 &
           HOST=$!
-          OXC_TEST_PORT=0 SDL_AUDIODRIVER=dummy timeout 60s xvfb-run -a "$BIN" \
+          OXC_TEST_PORT=0 SDL_AUDIODRIVER=dummy timeout 60s "$BIN" \
             -data "$DATA" -user "$PWD/.out/client-user" -config "$PWD/.out/client-config" \
             > .out/evidence/client-stdout.log 2>&1 &
           CLIENT=$!
