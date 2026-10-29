@@ -78,6 +78,9 @@ jobs:
         if: always()
         run: |
           node rdte/oxce-engine-synthetic/generate.mjs .out/synthetic
+          node rdte/oxce-engine-synthetic/generate-font.mjs .out/synthetic
+          test -s .out/synthetic/user/mods/rdte-synthetic-master/Language/rdte-fonts.yml
+          test -s .out/synthetic/user/mods/rdte-synthetic-master/Language/rdte-fonts.png
           cp -a .out/upstream/bin/common .out/synthetic/data/common
           cp -a .out/upstream/bin/standard .out/synthetic/data/standard
           node rdte/oxce-engine-synthetic/generate-legacy.mjs .out/synthetic/data/SYNTHETIC

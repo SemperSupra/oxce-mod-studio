@@ -24,6 +24,7 @@ writeFileSync(join(mod,'metadata.yml'), [
   ''
 ].join('\n'));
 writeFileSync(join(mod,'Ruleset/10-synthetic.rul'),[
+  'fontName: rdte-fonts.yml',
   'research:',
   '  - name: STR_RDTE_RESEARCH',
   '    cost: 1',
