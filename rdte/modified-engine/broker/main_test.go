@@ -26,3 +26,13 @@ func TestInspectReadOnlyAndUnqualified(t *testing.T){
  var v Snapshot;if err:=json.Unmarshal(rr.Body.Bytes(),&v);err!=nil{t.Fatal(err)}
  if v.ScreenClass!="StartState"||v.Multiplayer||v.Revision!=0{t.Fatalf("false engine or multiplayer acceptance: %+v",v)}
 }
+
+func TestNativeAccessibleTextAndControlModel(t *testing.T){
+ d:=t.TempDir()
+ trace:=filepath.Join(d,"trace")
+ os.WriteFile(trace,[]byte("{\"event\":\"screen\",\"class\":\"MainMenuState\",\"scaleX\":2,\"scaleY\":2,\"controls\":[{\"role\":\"button\",\"label\":\"New game\",\"x\":10,\"y\":20,\"w\":60,\"h\":15},{\"role\":\"text\",\"label\":\"Signal Frontier\",\"x\":10,\"y\":3,\"w\":120,\"h\":15}]}\n"),0600)
+ b:=&Broker{mailbox:filepath.Join(d,"commands"),trace:trace,token:"secret"}
+ got:=b.view()
+ if got.ScreenClass!="MainMenuState"||len(got.Controls)!=2||got.Controls[0].Label!="New game"||got.ScaleX!=2{t.Fatalf("wrong semantics %+v",got)}
+ if got.Multiplayer{t.Fatal("local UI falsely asserts real multiplayer")}
+}

@@ -48,12 +48,13 @@ jobs:
           test "$(git -C .out/oxce-public rev-parse HEAD)" = "668880bb756852f0734cfe92e438e400080a2f4d"
           git init .out/fixture-public
           git -C .out/fixture-public remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
-          git -C .out/fixture-public fetch --depth 1 origin bf7ebe38d95cea319b46c83e178b09279a8dab4a
+          git -C .out/fixture-public fetch --depth 1 origin 47aca0bd5e9893bf8b12a03431f4642335c0b57b
           git -C .out/fixture-public checkout --detach FETCH_HEAD
-          test "$(git -C .out/fixture-public rev-parse HEAD)" = "bf7ebe38d95cea319b46c83e178b09279a8dab4a"
+          test "$(git -C .out/fixture-public rev-parse HEAD)" = "47aca0bd5e9893bf8b12a03431f4642335c0b57b"
       - name: Apply opt-in control instrumentation
         run: |
           node rdte/modified-engine/patch-engine.mjs .out/oxce-public/src/Engine/Game.cpp | tee .out/modified-evidence/patch.txt
+          node rdte/modified-engine/patch-accessibility.mjs .out/oxce-public | tee -a .out/modified-evidence/patch.txt
           grep -q 'SF_RDTE_EVAL_BEGIN' .out/oxce-public/src/Engine/Game.cpp
       - name: Compile modified actual OXCE engine
         shell: bash
