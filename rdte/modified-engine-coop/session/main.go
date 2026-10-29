@@ -44,6 +44,8 @@ type Result struct{
  ClientObservation string
  HostStates []string
  ClientStates []string
+ HostDialog map[string]interface{}
+ ClientDialog map[string]interface{}
  FirstFailure string
  Commands []string
 }
@@ -229,6 +231,14 @@ func main(){
  if mode=="shared" && (!r.ClientWorldObserved||!r.HostWorldObserved||!r.ClientSeesHostBase) && r.FirstFailure=="" {
    r.FirstFailure="shared-world-not-loaded-or-not-replicated: "+r.ClientObservation
  }
+ // Source-derived read-only evaluation of the actual hold buttons and dialog
+ // codes (pinned TestServer::coop_dialog_info), not synthetic click acceptance.
+ if dialog,err:=host.run(map[string]interface{}{"cmd":"coop_dialog_info"});err==nil {
+   r.HostDialog=dialog
+ }else{r.ClientObservation+=" host-dialog:"+err.Error()}
+ if dialog,err:=client.run(map[string]interface{}{"cmd":"coop_dialog_info"});err==nil {
+   r.ClientDialog=dialog
+ }else{r.ClientObservation+=" client-dialog:"+err.Error()}
  // Still no shared world checksum or tactical turn-by-turn equivalence.
  // Distinct single-player saves in a co-op lobby are not proof of sync.
  // A host base in a real save is NOT proof of synchronized campaign,
