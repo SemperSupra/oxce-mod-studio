@@ -32,6 +32,17 @@ jobs:
           cache: false
       - name: Check campaign-mode classifier negatives before native processes
         run: GO111MODULE=off go test ./rdte/modified-engine-coop/session
+      - name: Read verified original-game preflight result
+        uses: actions/download-artifact@v4
+        with:
+          name: oxce-source-preflight-40942951644
+          run-id: 40942951644
+          github-token: ${{ github.token }}
+          path: .out/necessary-source-gate
+      - name: Fail closed before native co-op if fixture prerequisites failed
+        run: |
+          test -s .out/necessary-source-gate/preflight.json
+          node -e 'const x=require("./.out/necessary-source-gate/preflight.json");if(x.EvidenceClass!=="SOURCE_DERIVED_NECESSARY_FIXTURE_CHECK_NOT_ENGINE"||x.EngineExecuted!==false||x.GameplayQualified!==false||!Array.isArray(x.Missing)||x.Missing.length)process.exit(1)'
       - name: Fetch immutable prior source-verified co-op build artifact
         uses: actions/download-artifact@v4
         with:
@@ -49,7 +60,7 @@ jobs:
         run: |
           git init .out/public-fixtures
           git -C .out/public-fixtures remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
-          git -C .out/public-fixtures fetch --depth 1 origin 92c845a5f9215ca5636eff80de9e7c2404314766
+          git -C .out/public-fixtures fetch --depth 1 origin 502c4dc3fe330634c4f223c6e07d35fe99f6d1c8
           git -C .out/public-fixtures checkout --detach FETCH_HEAD
           git init .out/public-coop-source
           git -C .out/public-coop-source remote add origin https://github.com/OpenXcom-Coop/OpenXcom-Coop-Mod.git

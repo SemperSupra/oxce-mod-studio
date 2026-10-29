@@ -223,6 +223,9 @@ func main(){
   r.ObservedSubsetEqual=string(hh)==string(cc)
   // Equality of a selected read-only projection is NEVER tactical or shared-world acceptance.
  }
+ if mode=="shared" && (!r.ClientWorldObserved||!r.HostWorldObserved||!r.ClientSeesHostBase) && r.FirstFailure=="" {
+   r.FirstFailure="shared-world-not-loaded-or-not-replicated: "+r.ClientObservation
+ }
  // Still no shared world checksum or tactical turn-by-turn equivalence.
  // Distinct single-player saves in a co-op lobby are not proof of sync.
  // A host base in a real save is NOT proof of synchronized campaign,
