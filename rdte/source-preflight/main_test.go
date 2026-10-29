@@ -98,7 +98,7 @@ func TestGroundInventoryKindIsRequired(t *testing.T) {
   bad:=strings.Replace(fixture,"  - id: STR_GROUND","  - id: STR_MISSING_GROUND",1)
   v:=Check([]byte(bad),[]byte("playIntro: false"),validRoot(t))
   if !strings.Contains(strings.Join(v.Missing,","),"invs:STR_GROUND:kind"){t.Fatal(v)}
-  bad=strings.Replace(fixture,"    y: 140\\n    type: 2","    y: 140\\n    type: 1",1)
+  bad=strings.Replace(fixture,"    y: 140\n    type: 2","    y: 140\n    type: 1",1)
   v=Check([]byte(bad),[]byte("playIntro: false"),validRoot(t))
   if !strings.Contains(strings.Join(v.Missing,","),"invs:STR_GROUND:kind"){t.Fatal(v)}
 }
