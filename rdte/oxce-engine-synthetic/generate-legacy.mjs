@@ -59,6 +59,12 @@ for(const name of ['TAC01.SCR','DETBORD.PCK','DETBORD2.PCK','ICONS.PCK','MEDIBOR
 blankPck('TERRAIN','BLANKS',512);
 // Independently authored minimal two-record MCD required by pinned OXCE reader.
 put('TERRAIN/BLANKS.MCD',Buffer.alloc(2*62));
+// Source-derived synthetic 10x10x1 map using object 1 as its ground tile.
+const sfMap=Buffer.alloc(403);
+sfMap[0]=10;sfMap[1]=10;sfMap[2]=1;
+for(let tile=0;tile<100;tile++)sfMap[3+tile*4]=1;
+put('MAPS/SFREL00.MAP',sfMap);
+
 
 for(const n of ['BIGOBS','FLOOROB','HANDOB']) blankPck('UNITS',n,512);
 blankPck('UNITS','SIGNALRELAY',512);
