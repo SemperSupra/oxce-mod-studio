@@ -12,8 +12,7 @@ func TestEmptyFailClosed(t *testing.T){
 func TestMenuTraceAndErrorControl(t *testing.T){
  root:=t.TempDir();d:=filepath.Join(root,"boot")
  if e:=os.MkdirAll(d,0700);e!=nil{t.Fatal(e)}
- trace:=`{"class":"N8OpenXcom13MainMenuStateE","controls":[{"role":"button","label":"New Game"}]}`+"
-"
+ trace:=`{"class":"N8OpenXcom13MainMenuStateE","controls":[{"role":"button","label":"New Game"}]}`+string(byte(10))
  if e:=os.WriteFile(filepath.Join(d,"trace.jsonl"),[]byte(trace),0600);e!=nil{t.Fatal(e)}
  s:=analyze(root,"boot","MainMenuState")
  if !s.NativeEngineObserved||!s.TargetObserved||len(s.VisibleLabels)!=1{t.Fatalf("unexpected %+v",s)}
