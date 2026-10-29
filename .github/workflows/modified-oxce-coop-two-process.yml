@@ -48,7 +48,8 @@ jobs:
           node .out/public-fixtures/rdte/oxce-engine-synthetic/generate-legacy.mjs .out/synthetic/data/SYNTHETIC
           sed -i 's/requiredExtendedVersion: "8.6"/requiredExtendedVersion: "8.4"/' .out/synthetic/user/mods/rdte-synthetic-master/metadata.yml
           sed -i '/^  mute: true$/a\  playIntro: false' .out/synthetic/config/options.cfg
-          grep -q '^  playIntro: false          cp -a .out/public-coop-source/bin/common .out/synthetic/data/common
+          grep -q 'playIntro: false' .out/synthetic/config/options.cfg
+          cp -a .out/public-coop-source/bin/common .out/synthetic/data/common
           cp -a .out/public-coop-source/bin/standard .out/synthetic/data/standard
           test ! -e .out/synthetic/data/UFO
           test ! -e .out/synthetic/data/TFTD
