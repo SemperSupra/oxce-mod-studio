@@ -69,12 +69,14 @@ func Check(rules,config []byte,root string) Verdict {
   for _,field:=range []string{"facilities","crafts","items"} {
     require(matches(base,"(?m)^\\s+"+field+":\\s*"),"startingBase:"+field)
   }
-  for _,name:=range []string{"mainMenu","newGameMenu","newBattleMenu","geoscape","pauseMenu","saveMenus","baseNaming","placeFacility","selectFacility","basescape"} {
+  for _,name:=range []string{"mainMenu","newGameMenu","newBattleMenu","geoscape","pauseMenu","saveMenus","baseNaming","placeFacility","selectFacility","basescape","battlescape","inventory"} {
     require(matches(interfaces,"(?m)^\\s+- type:\\s+"+name+"\\s*$"),"interfaces:"+name)
   }
   for _,name:=range []string{"slackingIndicator","trainingIndicator"} {
     require(matches(interfaces,"(?m)^\\s+- id:\\s+"+name+"\\s*$"),"interfaces:"+name)
   }
+  require(strings.Contains(interfaces,"id: icons")&&strings.Contains(interfaces,"size: [320, 56]"),"interfaces:battlescape-icons")
+  require(strings.Contains(interfaces,"id: weight")&&strings.Contains(interfaces,"id: grid"),"interfaces:inventory-essentials")
   require(matches(globe,"(?m)^\\s+textures:\\s*$")&&matches(globe,"(?m)^\\s+- id:\\s+0\\s*$"),"globe:nonempty-textures")
   require(strings.Contains(globe,"  polygons:")&&strings.Contains(globe,"    - [0, -15, -15, 15, -15, 0, 15]"),"globe:original-land-triangle")
   require(strings.Contains(block(text,"facilities"),"lift: true")&&strings.Contains(block(text,"facilities"),"type: STR_SF_ACCESS_LIFT"),"facilities:original-access-lift")
