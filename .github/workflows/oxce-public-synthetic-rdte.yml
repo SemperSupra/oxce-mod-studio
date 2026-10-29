@@ -107,7 +107,7 @@ jobs:
             '"$@" > .out/rdte-evidence/engine-stdout-stderr.log 2>&1 & pid=$!; sleep 4; import -display "$DISPLAY" -window root .out/rdte-evidence/engine-screen.png || true; wait "$pid"' sh "$BIN" \
             -data "$PWD/.out/synthetic/data" \
             -user "$PWD/.out/synthetic/user" \
-            -config "$PWD/.out/synthetic/config" \
+            -config "$PWD/.out/synthetic/config"
           rc=$?
           echo "engine_launch_exit=$rc" >> .out/rdte-evidence/exit.env
           find .out/synthetic -maxdepth 5 -type f \
