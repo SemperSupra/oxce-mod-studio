@@ -25,6 +25,10 @@ type Result struct{
  StartEligible bool
  CampaignStartClicked bool
  HostBasePlacementReached bool
+ HostBaseNamed bool
+ HostSavedBaseVisible bool
+ ClientSeesHostBase bool
+ ClientObservation string
  HostStates []string
  ClientStates []string
  FirstFailure string
@@ -111,5 +115,27 @@ func main(){
  r.CampaignStartClicked=true
  r.HostStates,e=host.waitState("BuildNewBaseState");if e!=nil{r.FirstFailure="host-base-placement: "+e.Error();return}
  r.HostBasePlacementReached=true
- // Campaign start is not a synchronized world, base placement or playable battle.
+ // OXCE BuildNewBaseState::placeAt uses original globe polygons; test 0,0
+ // against our independently authored triangle, never an original retail map.
+ if _,ok:=cmd(host,map[string]interface{}{"cmd":"place_first_base","lon":0.0,"lat":0.0,"name":"Signal Ridge"});!ok{return}
+ r.HostBaseNamed=true
+ hostBases,ok:=cmd(host,map[string]interface{}{"cmd":"get_soldiers"});if !ok{return}
+ list,hasList:=hostBases["bases"].([]interface{})
+ if !hasList{r.FirstFailure="host-base-list-missing";return}
+ for _,item:=range list{
+  record,isObj:=item.(map[string]interface{})
+  if isObj&&record["name"]=="Signal Ridge"{r.HostSavedBaseVisible=true;break}
+ }
+ if !r.HostSavedBaseVisible{r.FirstFailure="host-base-not-visible-in-real-save";return}
+ r.HostStates,e=host.states();if e!=nil{r.FirstFailure="host-state-after-base: "+e.Error();return}
+ r.ClientStates,e=client.states();if e!=nil{r.ClientObservation="client-state-unavailable: "+e.Error()} 
+ clientBases,err:=client.run(map[string]interface{}{"cmd":"get_soldiers"})
+ if err!=nil{r.ClientObservation="client-base-observe: "+err.Error()}else if bases,valid:=clientBases["bases"].([]interface{});valid{
+  for _,item:=range bases{
+   record,ok:=item.(map[string]interface{})
+   if ok&&record["name"]=="Signal Ridge"{r.ClientSeesHostBase=true}
+  }
+ }
+ // A host base in a real save is NOT proof of synchronized campaign,
+ // client base replication, shared Battlescape or a playable release.
 }
