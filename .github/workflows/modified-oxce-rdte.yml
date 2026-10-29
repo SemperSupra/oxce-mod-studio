@@ -48,9 +48,9 @@ jobs:
           test "$(git -C .out/oxce-public rev-parse HEAD)" = "668880bb756852f0734cfe92e438e400080a2f4d"
           git init .out/fixture-public
           git -C .out/fixture-public remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
-          git -C .out/fixture-public fetch --depth 1 origin e5271d261207f02d56078a631d8d61c5bd366362
+          git -C .out/fixture-public fetch --depth 1 origin 20cb11195179c59b07d40dc7cf1fa434e002bc1c
           git -C .out/fixture-public checkout --detach FETCH_HEAD
-          test "$(git -C .out/fixture-public rev-parse HEAD)" = "e5271d261207f02d56078a631d8d61c5bd366362"
+          test "$(git -C .out/fixture-public rev-parse HEAD)" = "20cb11195179c59b07d40dc7cf1fa434e002bc1c"
       - name: Apply opt-in control instrumentation
         run: |
           node rdte/modified-engine/patch-engine.mjs .out/oxce-public/src/Engine/Game.cpp | tee .out/modified-evidence/patch.txt
@@ -114,7 +114,7 @@ jobs:
           cp .out/modified-run/trace.jsonl .out/modified-evidence/trace.jsonl || true
           grep -q 'Loading ended.' .out/modified-package/user/openxcom.log && echo 'native-load-marker=PASS' >> .out/modified-evidence/exits.txt || true
           test -s .out/modified-evidence/trace.jsonl
-          if grep -Eq 'ERROR: Sprite|ERROR: FileRecord|Video intro not found' .out/modified-evidence/trace.jsonl; then
+          if grep -Eq 'ERROR: |Video intro not found' .out/modified-evidence/trace.jsonl; then
             echo 'ui-screen=ERROR_RESOURCE_NOT_READY' >> .out/modified-evidence/exits.txt
             echo 'Native UI smoke failed: resource error is not a playable screen' >&2
             exit 1
