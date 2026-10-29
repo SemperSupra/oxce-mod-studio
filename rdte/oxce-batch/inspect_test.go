@@ -6,7 +6,7 @@ import (
 )
 func TestEmptyFailClosed(t *testing.T){
  r:=batch(t.TempDir())
- if len(r.NativeScenarios)!=5||r.GameplayQualified||r.MultiplayerQualified||r.AccessibilityQualified{t.Fatal("false equivalence")}
+ if len(r.NativeScenarios)!=6||r.GameplayQualified||r.MultiplayerQualified||r.AccessibilityQualified{t.Fatal("false equivalence")}
  for _,s:=range r.NativeScenarios{if s.TargetObserved{t.Fatal("absent native trace accepted")}}
 }
 func TestMenuTraceAndErrorControl(t *testing.T){
@@ -17,6 +17,7 @@ func TestMenuTraceAndErrorControl(t *testing.T){
  s:=analyze(root,"boot","MainMenuState")
  if !s.NativeEngineObserved||!s.TargetObserved||len(s.VisibleLabels)!=1{t.Fatalf("unexpected %+v",s)}
  s=analyze(root,"new-game","NewGameState");if s.TargetObserved{t.Fatal("unobserved new game accepted")}
+ s=analyze(root,"new-battle-briefing-continue","InventoryState");if s.TargetObserved{t.Fatal("unobserved inventory accepted")}
 }
 func TestNoSyntheticScreenshotIsInvented(t *testing.T){
  s:=analyze(t.TempDir(),"boot","MainMenuState")
