@@ -113,6 +113,10 @@ writeFileSync(join(mod,'Language/en-US.yml'),[
   '  STR_RDTE_RESEARCH: "Synthetic research"',
   '  STR_RDTE_CELL: "Synthetic cell"',
   '  STR_RDTE_TOOL: "Synthetic tool"',
+  '  STR_SF_ASTER_COUNCIL: "Aster Vale Council"',
+  '  STR_SF_ASTER_SECTOR: "Aster Vale frontier sector"',
+  '  STR_OK: "Confirm"',
+  '  STR_CANCEL: "Cancel"',
   ''
 ].join('\n'));
 // Explicitly enable ONLY the synthetic master, and do not import "UFO" or "TFTD".
