@@ -20,6 +20,14 @@ func validRoot(t *testing.T) string{
   for _,name:=range []string{"base.png","avatar.png"} {
     if err:=os.WriteFile(filepath.Join(path,name),png,0600);err!=nil{t.Fatal(err)}
   }
+  geo:=filepath.Join(root,"data","SYNTHETIC","GEODATA")
+  if err:=os.MkdirAll(geo,0700);err!=nil{t.Fatal(err)}
+  pal:=make([]byte,5*256*3)
+  for bank:=0;bank<5;bank++ {
+    off:=(bank*256+1)*3
+    pal[off]=61;pal[off+1]=60;pal[off+2]=52
+  }
+  if err:=os.WriteFile(filepath.Join(geo,"PALETTES.DAT"),pal,0600);err!=nil{t.Fatal(err)}
   sound:=filepath.Join(root,"data","SYNTHETIC","SOUND")
   if err:=os.MkdirAll(sound,0700);err!=nil{t.Fatal(err)}
   wav:=make([]byte,48);copy(wav,"RIFF");copy(wav[8:],"WAVE")
@@ -205,4 +213,14 @@ func TestUnresolvedNativeBattleTranslationRejected(t *testing.T){
  if err:=os.WriteFile(path,[]byte(damaged),0600);err!=nil{t.Fatal(err)}
  v:=Check([]byte(fixture),[]byte("playIntro: false"),root)
  if !strings.Contains(strings.Join(v.Missing,","),"language:STR_MISSION"){t.Fatal(v)}
+}
+
+func TestNativeGlyphPaletteRejectsUnreadableForeground(t *testing.T){
+ root:=validRoot(t)
+ path:=filepath.Join(root,"data","SYNTHETIC","GEODATA","PALETTES.DAT")
+ b,e:=os.ReadFile(path);if e!=nil{t.Fatal(e)}
+ b[3]=1;b[4]=3;b[5]=7
+ if e=os.WriteFile(path,b,0600);e!=nil{t.Fatal(e)}
+ v:=Check([]byte(fixture),[]byte("playIntro: false"),root)
+ if !strings.Contains(strings.Join(v.Missing,","),"ui:original-palette-readable-foreground"){t.Fatal(v)}
 }
