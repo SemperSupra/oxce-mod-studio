@@ -251,7 +251,7 @@ writeFileSync(join(mod,'Ruleset/10-synthetic.rul'),[
   '        lowQty: 1',
   '        highQty: 1',
   '        dQty: 0',
-  '        itemSets: []',
+  '        itemSets: [[STR_RDTE_TOOL]]',
   '# Original synthetic map script for the pinned RuleTerrain DEFAULT lookup.',
   'mapScripts:',
   '  - type: DEFAULT',
