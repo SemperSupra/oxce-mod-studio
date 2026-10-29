@@ -1,0 +1,56 @@
+name: OXCE source-derived original game preflight
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/oxce-source-preflight.yml"
+      - "rdte/source-preflight/**"
+permissions:
+  contents: read
+concurrency:
+  group: oxce-source-preflight-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  fixture-prerequisites:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Check negative controls
+        run: cd rdte/source-preflight && go test -race ./...
+      - name: Generate exact original synthetic fixture and art
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .out/evidence
+          git init .out/fixtures
+          git -C .out/fixtures remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
+          git -C .out/fixtures fetch --depth 1 origin 45efab43202122cb5525d4a396dfaa90b6bda87d
+          git -C .out/fixtures checkout --detach FETCH_HEAD
+          test "$(git -C .out/fixtures rev-parse HEAD)" = "45efab43202122cb5525d4a396dfaa90b6bda87d"
+          node .out/fixtures/rdte/oxce-engine-synthetic/generate.mjs .out/generated
+          git init .out/original-art
+          git -C .out/original-art remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
+          git -C .out/original-art fetch --depth 1 origin 42be17ae50f9c323592e187572f57e1701e0f442
+          git -C .out/original-art checkout --detach FETCH_HEAD
+          (cd .out/original-art/rdte/signal-frontier-assets && go run . "$GITHUB_WORKSPACE/.out/art")
+          mkdir -p .out/generated/data/SYNTHETIC/multiplayer
+          cp .out/art/Art/signal-relay.png .out/generated/data/SYNTHETIC/multiplayer/base.png
+          cp .out/art/Art/signal-relay.png .out/generated/data/SYNTHETIC/multiplayer/avatar.png
+          sha256sum .out/generated/user/mods/rdte-synthetic-master/Ruleset/10-synthetic.rul .out/generated/data/SYNTHETIC/multiplayer/*.png > .out/evidence/inputs.sha256
+      - name: Produce bounded source necessary-condition verdict
+        run: cd rdte/source-preflight && go run . "$GITHUB_WORKSPACE/.out/generated" "$GITHUB_WORKSPACE/.out/evidence/preflight.json"
+      - name: Preserve evidence on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oxce-source-preflight-${{ github.run_id }}
+          path: .out/evidence/
+          retention-days: 7
+          if-no-files-found: warn
