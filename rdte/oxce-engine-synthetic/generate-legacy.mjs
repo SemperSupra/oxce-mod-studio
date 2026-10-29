@@ -58,6 +58,26 @@ const blankSpk=Buffer.from([255,255,0,125]);
 for(const name of ['TAC01.SCR','DETBORD.PCK','DETBORD2.PCK','ICONS.PCK','MEDIBORD.PCK','SCANBORD.PCK','UNIBORD.PCK'])put('UFOGRAPH/'+name,blankSpk);
 blankPck('TERRAIN','BLANKS',512);
 for(const n of ['BIGOBS','FLOOROB','HANDOB']) blankPck('UNITS',n,512);
+
+// Independent original emergency-response loop (not existing soundtrack).
+// Deterministic 2s mono 16-bit PCM RIFF used as a native source-format probe.
+function sfScore(hz) {
+ const rate=22050,frames=rate*2, pcm=Buffer.alloc(44+frames*2);
+ pcm.write('RIFF',0);pcm.writeUInt32LE(pcm.length-8,4);pcm.write('WAVEfmt ',8);
+ pcm.writeUInt32LE(16,16);pcm.writeUInt16LE(1,20);pcm.writeUInt16LE(1,22);
+ pcm.writeUInt32LE(rate,24);pcm.writeUInt32LE(rate*2,28);
+ pcm.writeUInt16LE(2,32);pcm.writeUInt16LE(16,34);
+ pcm.write('data',36);pcm.writeUInt32LE(frames*2,40);
+ for(let i=0;i<frames;i++){
+  const t=i/rate,bar=Math.floor(t*4),pulse=[1,1.25,1.125,1.5][bar%4];
+  const envelope=Math.min(1,t*9)*Math.min(1,(2-t)*9);
+  const value=Math.round(7500*envelope*(.63*Math.sin(2*Math.PI*hz*pulse*t)+.25*Math.sin(2*Math.PI*hz*.5*t)+.12*Math.sin(2*Math.PI*hz*2*t)));
+  pcm.writeInt16LE(Math.max(-32768,Math.min(32767,value)),44+2*i);
+ }
+ return pcm;
+}
+for(const [name,hz] of [['gmgeo1',196],['gminter',277],['gmtactic1',147],['gmenbase',220]])
+ put('SOUND/'+name+'.wav',sfScore(hz));
 const manifest={kind:'artificial-legacy-binary-placeholders',originalCommercialAssets:false,engineCompatibilityVerified:false,files:made};
 mkdirSync(join(root,'rdte'),{recursive:true});
 writeFileSync(join(root,'rdte/synthetic-legacy-manifest.json'),JSON.stringify(manifest,null,2)+'\n');
