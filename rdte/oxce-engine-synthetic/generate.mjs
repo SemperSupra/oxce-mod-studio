@@ -34,6 +34,15 @@ writeFileSync(join(mod,'metadata.yml'), [
 ].join('\n'));
 writeFileSync(join(mod,'Ruleset/10-synthetic.rul'),[
   'fontName: rdte-fonts.yml',
+  '# Original tiny nine-frame globe marker atlas, source-derived from OXCE Globe::drawTarget.',
+  'extraSprites:',
+  '  - type: GlobeMarkers',
+  '    width: 27',
+  '    height: 3',
+  '    subX: 3',
+  '    subY: 3',
+  '    files:',
+  '      0: multiplayer/globe-markers.png',
   'interfaces:',
   '  - type: mainMenu',
   '    backgroundImage: BACK01.SCR',
