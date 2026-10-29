@@ -5,7 +5,7 @@ import (
   "strings"
   "testing"
 )
-const fixture = "invs:\n  - id: STR_GROUND\n    x: 0\n    y: 140\n    type: 2\n  - id: STR_RIGHT_HAND\n    type: 1\n  - id: STR_LEFT_HAND\n    type: 1\n  - id: STR_BELT\n    type: 0\n    slots: [[0, 0], [1, 0]]\n  - id: STR_BACK_PACK\n    type: 0\n    slots: [[0, 0], [1, 0]]\nmusics:\n  - type: GMGEO1\ncrafts:\n  - type: STR_SF_RESPONDER\nalienMissions:\n  - type: STR_SF_SIGNAL_PATROL\nalienDeployments:\n  - type: STR_SF_RELAY_DEPLOYMENT\n    data:\n      - alienRank: 0\n        itemSets: [[STR_RDTE_TOOL]]\nmapScripts:\n  - type: DEFAULT\n    commands:\n      - type: addBlock\n        size: [1, 1]\n        blocks: [0]\nterrains:\n  - name: SF_RELAY\nsoldiers:\n  - type: STR_SF_SURVEYOR\narmors:\n  - type: STR_SF_SURVEY_ARMOR\n    corpseBattle: [STR_SF_SURVEY_SHELL]\n    loftempsSet: [3]\nalienRaces:\n  - id: STR_SF_QUIET_ARRAY\nitems:\n  - type: STR_SF_SURVEY_SHELL\nunits:\n  - type: STR_SF_PROBE\nalienItemLevels:\n  - [0, 0, 0]\ncountries:\n  - type: STR_SF_COUNCIL\n    fundingBase: 500\n    areas:\n      - [0, 360, -65, 65]\nregions:\n  - type: STR_SF_AREA\n    areas:\n      - [0, 360, -65, 65]\nstartingBase:\n  facilities: []\n  crafts: []\n  items: {}\ninterfaces:\n  - type: mainMenu\n  - type: newGameMenu\n  - type: newBattleMenu\n  - type: geoscape\n    elements:\n      - id: slackingIndicator\n      - id: trainingIndicator\n  - type: pauseMenu\n  - type: saveMenus\n  - type: baseNaming\n  - type: placeFacility\n  - type: selectFacility\n  - type: basescape\nfacilities:\n  - type: STR_SF_ACCESS_LIFT\n    lift: true\n    fireSound: -1\n    hitSound: -1\n    placeSound: -1\nglobe:\n  polygons:\n    - [0, -15, -15, 15, -15, 0, 15]\n  textures:\n    - id: 0\n      terrain: []\n"
+const fixture = "extraSprites:\n  - type: GlobeMarkers\n    width: 27\n    height: 3\n    subX: 3\n    subY: 3\n    files:\n      0: multiplayer/globe-markers.png\ninvs:\n  - id: STR_GROUND\n    x: 0\n    y: 140\n    type: 2\n  - id: STR_RIGHT_HAND\n    type: 1\n  - id: STR_LEFT_HAND\n    type: 1\n  - id: STR_BELT\n    type: 0\n    slots: [[0, 0], [1, 0]]\n  - id: STR_BACK_PACK\n    type: 0\n    slots: [[0, 0], [1, 0]]\nmusics:\n  - type: GMGEO1\ncrafts:\n  - type: STR_SF_RESPONDER\nalienMissions:\n  - type: STR_SF_SIGNAL_PATROL\nalienDeployments:\n  - type: STR_SF_RELAY_DEPLOYMENT\n    data:\n      - alienRank: 0\n        itemSets: [[STR_RDTE_TOOL]]\nmapScripts:\n  - type: DEFAULT\n    commands:\n      - type: addBlock\n        size: [1, 1]\n        blocks: [0]\nterrains:\n  - name: SF_RELAY\nsoldiers:\n  - type: STR_SF_SURVEYOR\narmors:\n  - type: STR_SF_SURVEY_ARMOR\n    corpseBattle: [STR_SF_SURVEY_SHELL]\n    loftempsSet: [3]\nalienRaces:\n  - id: STR_SF_QUIET_ARRAY\nitems:\n  - type: STR_SF_SURVEY_SHELL\nunits:\n  - type: STR_SF_PROBE\nalienItemLevels:\n  - [0, 0, 0]\ncountries:\n  - type: STR_SF_COUNCIL\n    fundingBase: 500\n    areas:\n      - [0, 360, -65, 65]\nregions:\n  - type: STR_SF_AREA\n    areas:\n      - [0, 360, -65, 65]\nstartingBase:\n  facilities: []\n  crafts: []\n  items: {}\ninterfaces:\n  - type: mainMenu\n  - type: newGameMenu\n  - type: newBattleMenu\n  - type: geoscape\n    elements:\n      - id: slackingIndicator\n      - id: trainingIndicator\n  - type: pauseMenu\n  - type: saveMenus\n  - type: baseNaming\n  - type: placeFacility\n  - type: selectFacility\n  - type: basescape\nfacilities:\n  - type: STR_SF_ACCESS_LIFT\n    lift: true\n    fireSound: -1\n    hitSound: -1\n    placeSound: -1\nglobe:\n  polygons:\n    - [0, -15, -15, 15, -15, 0, 15]\n  textures:\n    - id: 0\n      terrain: []\n"
 
 func validRoot(t *testing.T) string{
   t.Helper()
@@ -13,6 +13,10 @@ func validRoot(t *testing.T) string{
   path:=filepath.Join(root,"data","SYNTHETIC","multiplayer")
   if err:=os.MkdirAll(path,0700);err!=nil{t.Fatal(err)}
   png:=[]byte{137,80,78,71,13,10,26,10,0,0,0,0}
+  markers:=make([]byte,24)
+  copy(markers,[]byte{137,80,78,71,13,10,26,10})
+  copy(markers[16:],[]byte{0,0,0,27,0,0,0,3})
+  if err:=os.WriteFile(filepath.Join(path,"globe-markers.png"),markers,0600);err!=nil{t.Fatal(err)}
   for _,name:=range []string{"base.png","avatar.png"} {
     if err:=os.WriteFile(filepath.Join(path,name),png,0600);err!=nil{t.Fatal(err)}
   }
@@ -165,4 +169,13 @@ func TestAlienDeploymentRequiresNonemptyItemSet(t *testing.T){
  bad:=strings.Replace(fixture,"        itemSets: [[STR_RDTE_TOOL]]","        itemSets: []",1)
  v:=Check([]byte(bad),[]byte("playIntro: false"),validRoot(t))
  if !strings.Contains(strings.Join(v.Missing,","),"alienDeployments:original-tool-itemset"){t.Fatal(v)}
+}
+
+func TestOriginalGlobeMarkersAreNecessary(t *testing.T){
+ root:=validRoot(t)
+ if err:=os.Remove(filepath.Join(root,"data","SYNTHETIC","multiplayer","globe-markers.png"));err!=nil{t.Fatal(err)}
+ bad:=strings.Replace(fixture,"  - type: GlobeMarkers","  - type: INVALID",1)
+ v:=Check([]byte(bad),[]byte("playIntro: false"),root)
+ e:=strings.Join(v.Missing,",")
+ if !strings.Contains(e,"extraSprites:globe-markers-nine-frames")||!strings.Contains(e,"original-coop-art:globe-markers-27x3"){t.Fatal(v)}
 }

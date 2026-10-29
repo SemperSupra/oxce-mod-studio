@@ -79,6 +79,18 @@ func Check(rules,config []byte,root string) Verdict {
   require(strings.Contains(globe,"  polygons:")&&strings.Contains(globe,"    - [0, -15, -15, 15, -15, 0, 15]"),"globe:original-land-triangle")
   require(strings.Contains(block(text,"facilities"),"lift: true")&&strings.Contains(block(text,"facilities"),"type: STR_SF_ACCESS_LIFT"),"facilities:original-access-lift")
   require(strings.Contains(block(text,"facilities"),"fireSound: -1")&&strings.Contains(block(text,"facilities"),"hitSound: -1")&&strings.Contains(block(text,"facilities"),"placeSound: -1"),"facilities:no-retail-GEO-CAT-index")
+  // Pinned co-op Globe::drawTarget indexes GlobeMarkers frames; synthetic
+  // atlas must provide all nine original entries before the added co-op frame 9.
+  sprite:=block(text,"extraSprites")
+  require(matches(sprite,"(?m)^\\s+- type:\\s+GlobeMarkers\\s*$")&&
+    strings.Contains(sprite,"subX: 3")&&strings.Contains(sprite,"subY: 3")&&
+    strings.Contains(sprite,"0: multiplayer/globe-markers.png"),
+    "extraSprites:globe-markers-nine-frames")
+  marker,me:=os.ReadFile(filepath.Join(root,"data","SYNTHETIC","multiplayer","globe-markers.png"))
+  require(me==nil&&len(marker)>=24&&
+    bytes.Equal(marker[:8],[]byte{137,80,78,71,13,10,26,10})&&
+    bytes.Equal(marker[16:24],[]byte{0,0,0,27,0,0,0,3}),
+    "original-coop-art:globe-markers-27x3")
   // Pinned OXCE 8.6.5 Mod::loadRule iterates "invs" with "id".
   // RuleInventory::load reads numeric type: INV_GROUND=2, INV_HAND=1.
   invs:=block(text,"invs")
