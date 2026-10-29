@@ -95,6 +95,9 @@ func Check(rules,config []byte,root string) Verdict {
   }
   // Pinned NewBattleState::btnOkClick resolves Mod::getAlienMission(getAlienMissionList().front()).
   // Absence of a mission entry was the next native GDB first failure.
+  deployment:=block(text,"alienDeployments")
+  require(matches(deployment,"(?m)^\\s+itemSets:\\s+\\[\\[STR_RDTE_TOOL\\]\\]\\s*$"),
+    "alienDeployments:original-tool-itemset")
   mission:=block(text,"alienMissions")
   require(matches(mission,"(?m)^\\s+- type:\\s+STR_SF_SIGNAL_PATROL\\s*$"),"alienMissions:nonempty-synthetic-patrol")
   // RuleTerrain defaults to DEFAULT; pinned Mod::loadRuleset reads
