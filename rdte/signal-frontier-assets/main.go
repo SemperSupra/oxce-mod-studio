@@ -141,5 +141,5 @@ func generate(root string) error{
 func main(){
  out:=".out/signal-frontier-assets";if len(os.Args)>1{out=os.Args[1]}
  if err:=generate(out);err!=nil{fmt.Fprintln(os.Stderr,err);os.Exit(1)}
- fmt.Println("generated 5 original asset files; ENGINE_NOT_QUALIFIED")
+ fmt.Println("generated original indexed art, palette, WAV and CAT assets; ENGINE_NOT_QUALIFIED")
 }
