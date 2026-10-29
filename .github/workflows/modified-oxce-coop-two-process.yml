@@ -96,7 +96,7 @@ jobs:
           sudo apt-get update -qq
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             libsdl1.2debian libsdl-image1.2 libsdl-gfx1.2-5 libsdl-mixer1.2 libsdl-net1.2 \
-            libsodium23 libjsoncpp25 libvorbisfile3 xvfb xauth
+            libsodium23 libjsoncpp25 libvorbisfile3 xvfb xauth x11-utils
       - name: Batch build both tiny original Go probes once before launching the C++ binaries
         run: |
           mkdir -p .out/probe
@@ -118,7 +118,7 @@ jobs:
           DISPLAY_SOCKET="/tmp/.X11-unix/X${DISPLAY_ID#:}"
           READY=0
           for i in $(seq 1 50); do
-            if test -S "$DISPLAY_SOCKET" && kill -0 "$XVFB" 2>/dev/null; then
+            if test -S "$DISPLAY_SOCKET" && xdpyinfo -display "$DISPLAY_ID" >/dev/null 2>&1 && kill -0 "$XVFB" 2>/dev/null; then
               READY=1
               break
             fi
@@ -133,6 +133,8 @@ jobs:
             -data "$DATA" -user "$PWD/.out/host-user" -config "$PWD/.out/host-config" \
             > .out/evidence/host-stdout.log 2>&1 &
           HOST=$!
+          # Require a rendered host frame before starting the second SDL client.
+          sleep 1
           OXC_TEST_PORT=0 SDL_AUDIODRIVER=dummy timeout 60s "$BIN" \
             -data "$DATA" -user "$PWD/.out/client-user" -config "$PWD/.out/client-config" \
             > .out/evidence/client-stdout.log 2>&1 &
