@@ -5,7 +5,7 @@ import (
   "strings"
   "testing"
 )
-const fixture = "countries:\n  - type: STR_SF_COUNCIL\n    fundingBase: 500\n    areas:\n      - [10, 340, -65, 65]\nregions:\n  - type: STR_SF_AREA\n    areas:\n      - [10, 340, -65, 65]\nstartingBase:\n  facilities: []\n  crafts: []\n  items: {}\ninterfaces:\n  - type: mainMenu\n  - type: newGameMenu\n  - type: newBattleMenu\n  - type: geoscape\n    elements:\n      - id: slackingIndicator\n      - id: trainingIndicator\n  - type: pauseMenu\n  - type: saveMenus\nglobe:\n  textures:\n    - id: 0\n      terrain: []\n"
+const fixture = "musics:\n  - type: GMGEO1\ncrafts:\n  - type: STR_SF_RESPONDER\nalienDeployments:\n  - type: STR_SF_RELAY_DEPLOYMENT\nterrains:\n  - name: SF_RELAY\nsoldiers:\n  - type: STR_SF_SURVEYOR\narmors:\n  - type: STR_SF_SURVEY_ARMOR\nalienRaces:\n  - id: STR_SF_QUIET_ARRAY\nunits:\n  - type: STR_SF_PROBE\nalienItemLevels:\n  - [0, 0, 0]\ncountries:\n  - type: STR_SF_COUNCIL\n    fundingBase: 500\n    areas:\n      - [10, 340, -65, 65]\nregions:\n  - type: STR_SF_AREA\n    areas:\n      - [10, 340, -65, 65]\nstartingBase:\n  facilities: []\n  crafts: []\n  items: {}\ninterfaces:\n  - type: mainMenu\n  - type: newGameMenu\n  - type: newBattleMenu\n  - type: geoscape\n    elements:\n      - id: slackingIndicator\n      - id: trainingIndicator\n  - type: pauseMenu\n  - type: saveMenus\nglobe:\n  textures:\n    - id: 0\n      terrain: []\n"
 
 func validRoot(t *testing.T) string{
   t.Helper()
@@ -15,6 +15,12 @@ func validRoot(t *testing.T) string{
   png:=[]byte{137,80,78,71,13,10,26,10,0,0,0,0}
   for _,name:=range []string{"base.png","avatar.png"} {
     if err:=os.WriteFile(filepath.Join(path,name),png,0600);err!=nil{t.Fatal(err)}
+  }
+  sound:=filepath.Join(root,"data","SYNTHETIC","SOUND")
+  if err:=os.MkdirAll(sound,0700);err!=nil{t.Fatal(err)}
+  wav:=make([]byte,48);copy(wav,"RIFF");copy(wav[8:],"WAVE")
+  for _,name:=range []string{"gmgeo1.wav","gminter.wav","gmtactic1.wav","gmenbase.wav"}{
+    if err:=os.WriteFile(filepath.Join(sound,name),wav,0600);err!=nil{t.Fatal(err)}
   }
   return root
 }
@@ -41,6 +47,14 @@ func TestArtAndRetailDirectoryGuards(t *testing.T){
   v:=Check([]byte(fixture),[]byte("playIntro: false"),root)
   errors:=strings.Join(v.Missing,",")
   if !strings.Contains(errors,"original-coop-art:base.png")||!strings.Contains(errors,"no-retail-dir:UFO"){t.Fatal(v)}
+}
+func TestTacticalAndMusicMissingFailClosed(t *testing.T){
+  bad:=strings.Replace(fixture,"  - type: STR_SF_RESPONDER","  - type: UNKNOWN",1)
+  root:=validRoot(t)
+  os.Remove(filepath.Join(root,"data","SYNTHETIC","SOUND","gmgeo1.wav"))
+  v:=Check([]byte(bad),[]byte("playIntro: false"),root)
+  errText:=strings.Join(v.Missing,",")
+  if !strings.Contains(errText,"crafts:STR_SF_RESPONDER")||!strings.Contains(errText,"original-music:gmgeo1.wav"){t.Fatal(v)}
 }
 func TestPreflightNeverClaimsNativeGameplay(t *testing.T){
   v:=Check([]byte(fixture),[]byte("playIntro: false"),validRoot(t))

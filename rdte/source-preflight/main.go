@@ -59,6 +59,36 @@ func Check(rules,config []byte,root string) Verdict {
   }
   require(matches(globe,"(?m)^\\s+textures:\\s*$")&&matches(globe,"(?m)^\\s+- id:\\s+0\\s*$"),"globe:nonempty-textures")
   require(bytes.Contains(config,[]byte("playIntro: false")),"config:disable-retail-intro")
+  for _,rule:=range []struct{key,expr string}{
+    {"musics:GMGEO1", "musics"},
+    {"crafts:STR_SF_RESPONDER","crafts"},
+    {"alienDeployments:STR_SF_RELAY_DEPLOYMENT","alienDeployments"},
+    {"terrains:SF_RELAY","terrains"},
+    {"soldiers:STR_SF_SURVEYOR","soldiers"},
+    {"armors:STR_SF_SURVEY_ARMOR","armors"},
+    {"alienRaces:STR_SF_QUIET_ARRAY","alienRaces"},
+    {"units:STR_SF_PROBE","units"},
+  }{
+    content:=block(text,rule.expr)
+    var name string
+    switch rule.key{
+      case "musics:GMGEO1": name="GMGEO1"
+      case "crafts:STR_SF_RESPONDER": name="STR_SF_RESPONDER"
+      case "alienDeployments:STR_SF_RELAY_DEPLOYMENT": name="STR_SF_RELAY_DEPLOYMENT"
+      case "terrains:SF_RELAY": name="SF_RELAY"
+      case "soldiers:STR_SF_SURVEYOR": name="STR_SF_SURVEYOR"
+      case "armors:STR_SF_SURVEY_ARMOR": name="STR_SF_SURVEY_ARMOR"
+      case "alienRaces:STR_SF_QUIET_ARRAY": name="STR_SF_QUIET_ARRAY"
+      case "units:STR_SF_PROBE": name="STR_SF_PROBE"
+    }
+    require(strings.Contains(content,"type: "+name)||strings.Contains(content,"id: "+name)||strings.Contains(content,"name: "+name),rule.key)
+  }
+  require(matches(block(text,"alienItemLevels"),"(?m)^\\s+- \\["),"alienItemLevels:nonempty")
+  for _,name:=range []string{"gmgeo1.wav","gminter.wav","gmtactic1.wav","gmenbase.wav"}{
+    raw,err:=os.ReadFile(filepath.Join(root,"data","SYNTHETIC","SOUND",name))
+    require(err==nil&&len(raw)>44&&bytes.Equal(raw[:4],[]byte("RIFF"))&&bytes.Equal(raw[8:12],[]byte("WAVE")), "original-music:"+name)
+  }
+
   for _,name:=range []string{"base.png","avatar.png"} {
     raw,err:=os.ReadFile(filepath.Join(root,"data","SYNTHETIC","multiplayer",name))
     require(err==nil&&len(raw)>=8&&bytes.Equal(raw[:8],[]byte{137,80,78,71,13,10,26,10}),"original-coop-art:"+name)
