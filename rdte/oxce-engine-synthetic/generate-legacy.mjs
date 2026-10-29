@@ -52,6 +52,10 @@ blankPck('UFOGRAPH','X1',512);
 image('UFOGRAPH/MEDIBITS.DAT',52,58);
 image('UFOGRAPH/DETBLOB.DAT',16,16);
 image('UFOGRAPH/TAC00.SCR',320,200);
+// These specific UI assets use the Surface::loadSpk reader despite .PCK extension.
+// A single skip of 32000 words represents a synthetic 320x200 transparent image.
+const blankSpk=Buffer.from([255,255,0,125]);
+for(const name of ['TAC01.SCR','DETBORD.PCK','DETBORD2.PCK','ICONS.PCK','MEDIBORD.PCK','SCANBORD.PCK','UNIBORD.PCK'])put('UFOGRAPH/'+name,blankSpk);
 blankPck('TERRAIN','BLANKS',512);
 for(const n of ['BIGOBS','FLOOROB','HANDOB']) blankPck('UNITS',n,512);
 const manifest={kind:'artificial-legacy-binary-placeholders',originalCommercialAssets:false,engineCompatibilityVerified:false,files:made};
