@@ -56,6 +56,7 @@ writeFileSync(join(out,'config/options.cfg'),[
   '    active: true',
   'options:',
   '  mute: true',
+  '  playIntro: false',
   '  lazyLoadResources: true',
   ''
 ].join('\n'));
