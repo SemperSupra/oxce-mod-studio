@@ -51,6 +51,7 @@ image('UFOGRAPH/MEDIBITS.DAT',52,58);
 image('UFOGRAPH/DETBLOB.DAT',16,16);
 image('UFOGRAPH/TAC00.SCR',320,200);
 blankPck('TERRAIN','BLANKS',512);
+for(const n of ['BIGOBS','FLOOROB','HANDOB']) blankPck('UNITS',n,512);
 const manifest={kind:'artificial-legacy-binary-placeholders',originalCommercialAssets:false,engineCompatibilityVerified:false,files:made};
 mkdirSync(join(root,'rdte'),{recursive:true});
 writeFileSync(join(root,'rdte/synthetic-legacy-manifest.json'),JSON.stringify(manifest,null,2)+'\n');
