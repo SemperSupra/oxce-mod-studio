@@ -78,6 +78,11 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             libsdl1.2debian libsdl-image1.2 libsdl-gfx1.2-5 libsdl-mixer1.2 libsdl-net1.2 \
             libsodium23 libjsoncpp25 libvorbisfile3 xvfb xauth
+      - name: Batch build both tiny original Go probes once before launching the C++ binaries
+        run: |
+          mkdir -p .out/probe
+          go build -o .out/probe/health rdte/modified-engine-coop/probe/main.go
+          go build -o .out/probe/session rdte/modified-engine-coop/session/main.go
       - name: Start two isolated modified OXCE processes on loopback
         shell: bash
         run: |
@@ -93,10 +98,10 @@ jobs:
             > .out/evidence/client-stdout.log 2>&1 &
           CLIENT=$!
           sleep 3
-          go run rdte/modified-engine-coop/probe/main.go .out/host-user .out/client-user .out/evidence/two-process.json > .out/evidence/probe-stdout.log 2>&1
+          .out/probe/health .out/host-user .out/client-user .out/evidence/two-process.json > .out/evidence/probe-stdout.log 2>&1
           echo "probe_exit=$?" >> .out/evidence/exit.txt
           # Batch: reuse these same two real binaries and user profiles for the next dependent gate.
-          go run rdte/modified-engine-coop/session/main.go .out/host-user .out/client-user .out/evidence/session-progress.json > .out/evidence/session-stdout.log 2>&1
+          .out/probe/session .out/host-user .out/client-user .out/evidence/session-progress.json > .out/evidence/session-stdout.log 2>&1
           echo "session_probe_exit=$?" >> .out/evidence/exit.txt
           wait "$HOST" || echo "host_exit=$?" >> .out/evidence/exit.txt
           wait "$CLIENT" || echo "client_exit=$?" >> .out/evidence/exit.txt

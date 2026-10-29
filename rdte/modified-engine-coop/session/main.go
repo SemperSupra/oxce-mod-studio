@@ -20,6 +20,11 @@ type Result struct{
  HostTcpAccepted bool
  ClientJoinAccepted bool
  ClientLobbyReached bool
+ HostLobbyReached bool
+ JoinPopupsDismissed bool
+ StartEligible bool
+ CampaignStartClicked bool
+ HostBasePlacementReached bool
  HostStates []string
  ClientStates []string
  FirstFailure string
@@ -80,5 +85,31 @@ func main(){
  r.ClientJoinAccepted=true
  r.ClientStates,e=client.waitState("LobbyMenu");if e!=nil{r.FirstFailure="client-lobby: "+e.Error();return}
  r.ClientLobbyReached=true
- // Transport success does not prove the session reached world sync/battle.
+ // The actual upstream co-op state machine raises a Profile notification
+ // on both clients; close via the same real Profile::buttonOK handler players use.
+ for _,c:=range []*Client{host,client}{
+   if _,e:=c.waitState("Profile");e!=nil{r.FirstFailure=c.name+"-join-profile: "+e.Error();return}
+   if _,ok:=cmd(c,map[string]interface{}{"cmd":"profile_ok"});!ok{return}
+ }
+ r.JoinPopupsDismissed=true
+ r.HostStates,e=host.waitState("LobbyMenu")
+ if e!=nil{r.FirstFailure="host-lobby: "+e.Error();return}
+ r.HostLobbyReached=true
+ var eligible bool
+ deadline:=time.Now().Add(10*time.Second)
+ for time.Now().Before(deadline){
+   v,ok:=cmd(host,map[string]interface{}{"cmd":"lobby_state"});if !ok{return}
+   if v["startEligible"]==true{eligible=true;break}
+   time.Sleep(200*time.Millisecond)
+ }
+ if !eligible{r.FirstFailure="host-lobby-not-start-eligible";return}
+ r.StartEligible=true
+ if _,ok:=cmd(host,map[string]interface{}{"cmd":"lobby_action"});!ok{return}
+ if _,e:=host.waitState("ConfirmStartCampaignState");e!=nil{r.FirstFailure="host-start-confirm: "+e.Error();return}
+ v,ok:=cmd(host,map[string]interface{}{"cmd":"lobby_confirm_ok"});if !ok{return}
+ if v["clicked"]!=true{r.FirstFailure="host-start-confirm-not-clicked";return}
+ r.CampaignStartClicked=true
+ r.HostStates,e=host.waitState("BuildNewBaseState");if e!=nil{r.FirstFailure="host-base-placement: "+e.Error();return}
+ r.HostBasePlacementReached=true
+ // Campaign start is not a synchronized world, base placement or playable battle.
 }
