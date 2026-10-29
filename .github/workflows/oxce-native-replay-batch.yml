@@ -94,6 +94,12 @@ jobs:
           timeout --kill-after=4s 35s xvfb-run -a bash rdte/oxce-batch/debug-new-battle.sh \
             .out/package .out/evidence/debug-new-battle || true
           test -s .out/evidence/debug-new-battle/gdb.log
+          echo 'Original New Battle Confirm GDB frames (if reproduced):'
+          if test -s .out/evidence/debug-new-battle/stack-summary.txt; then
+            cat .out/evidence/debug-new-battle/stack-summary.txt
+          else
+            echo 'NO_SIGSEGV_STACK_CAPTURED; diagnostic remains open'
+          fi
       - name: Upload original native receipts even on failed scenario
         uses: actions/upload-artifact@v4
         if: always()
