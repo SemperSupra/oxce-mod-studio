@@ -1,9 +1,12 @@
 name: Public OXCE 8.6.5 synthetic-master engine RDTE
+# Fixture/rules/audio-only edits use the source preflight + immutable-binary replay.
+# Do not rebuild the same C++ engine for every generated game-content change.
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - ".github/workflows/oxce-public-synthetic-rdte.yml"
-      - "rdte/oxce-engine-synthetic/**"
+      - "rdte/oxce-engine-synthetic/engine-source/**"
 
 permissions:
   contents: read
