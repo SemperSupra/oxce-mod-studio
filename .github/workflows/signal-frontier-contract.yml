@@ -15,4 +15,4 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
-      - run: node --version && node --test rdte/signal-frontier/campaign.test.mjs
+      - run: node --version && node --test rdte/signal-frontier/campaign.test.mjs rdte/signal-frontier/emit-oxce.test.mjs
