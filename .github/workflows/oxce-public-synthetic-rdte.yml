@@ -16,8 +16,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  select-engine-build:
+    name: Select source-changed engine build without repeated fixture compiles
+    runs-on: ubuntu-22.04
+    timeout-minutes: 3
+    outputs:
+      needed: ${{ steps.diff.outputs.needed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - id: diff
+        shell: bash
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            echo 'needed=true' >> "$GITHUB_OUTPUT"
+          elif git diff-tree --no-commit-id --name-only -r HEAD | grep -q '^rdte/oxce-engine-synthetic/engine-source/'; then
+            echo 'needed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'needed=false' >> "$GITHUB_OUTPUT"
+            echo 'Fixture-only change: verified immutable engine replay is the correct venue; no C++ build.' >> "$GITHUB_STEP_SUMMARY"
+          fi
   actual-engine-smoke:
     name: Build actual OXCE and attempt synthetic engine load
+    needs: select-engine-build
+    if: needs.select-engine-build.outputs.needed == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 40
     steps:
