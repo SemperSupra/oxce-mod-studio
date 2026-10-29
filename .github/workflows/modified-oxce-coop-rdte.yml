@@ -3,7 +3,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/modified-oxce-coop-rdte.yml"
-      - "rdte/modified-engine-coop/**"
+      - "rdte/modified-engine-coop/build/**"
 permissions:
   contents: read
 concurrency:
