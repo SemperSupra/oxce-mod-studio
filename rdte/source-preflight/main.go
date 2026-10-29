@@ -32,6 +32,20 @@ func block(text,key string) string {
   return strings.Join(out,"\n")
 }
 
+
+func inventoryRecord(section,id string) string {
+  active:=false
+  lines:=[]string{}
+  for _,line:=range strings.Split(section,"\n") {
+    if strings.HasPrefix(line,"  - id: ") {
+      if active {break}
+      active=strings.TrimSpace(strings.TrimPrefix(line,"  - id: "))==id
+    }
+    if active {lines=append(lines,line)}
+  }
+  return strings.Join(lines,"\n")
+}
+
 func matches(s,pattern string) bool {return regexp.MustCompile(pattern).MatchString(s)}
 
 func Check(rules,config []byte,root string) Verdict {
@@ -61,6 +75,20 @@ func Check(rules,config []byte,root string) Verdict {
   require(strings.Contains(globe,"  polygons:")&&strings.Contains(globe,"    - [0, -15, -15, 15, -15, 0, 15]"),"globe:original-land-triangle")
   require(strings.Contains(block(text,"facilities"),"lift: true")&&strings.Contains(block(text,"facilities"),"type: STR_SF_ACCESS_LIFT"),"facilities:original-access-lift")
   require(strings.Contains(block(text,"facilities"),"fireSound: -1")&&strings.Contains(block(text,"facilities"),"hitSound: -1")&&strings.Contains(block(text,"facilities"),"placeSound: -1"),"facilities:no-retail-GEO-CAT-index")
+  // Pinned OXCE 8.6.5 Mod::loadRule iterates "invs" with "id".
+  // RuleInventory::load reads numeric type: INV_GROUND=2, INV_HAND=1.
+  invs:=block(text,"invs")
+  for _,spec:=range []struct{id string;kind int}{
+    {"STR_GROUND",2},{"STR_RIGHT_HAND",1},{"STR_LEFT_HAND",1},
+  }{
+    rec:=inventoryRecord(invs,spec.id)
+    require(rec!=""&&matches(rec,fmt.Sprintf("(?m)^\\s+type:\\s+%d\\s*$",spec.kind)),"invs:"+spec.id+":kind")
+  }
+  for _,id:=range []string{"STR_BELT","STR_BACK_PACK"} {
+    rec:=inventoryRecord(invs,id)
+    require(rec!=""&&matches(rec,"(?m)^\\s+type:\\s+0\\s*$")&&matches(rec,"(?m)^\\s+slots:\\s+\\["),
+      "invs:"+id+":slots")
+  }
   armor:=block(text,"armors")
   require(matches(armor,"(?m)^\\s+corpseBattle:\\s*\\[STR_SF_SURVEY_SHELL\\]\\s*$"),"armors:one-corpse")
   require(matches(armor,"(?m)^\\s+loftempsSet:\\s*\\[3\\]\\s*$"),"armors:one-loft-template")
