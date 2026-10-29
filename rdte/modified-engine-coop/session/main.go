@@ -143,9 +143,9 @@ func main(){
  r.CampaignStartClicked=true
  r.HostStates,e=host.waitState("BuildNewBaseState");if e!=nil{r.FirstFailure="host-base-placement: "+e.Error();return}
  r.HostBasePlacementReached=true
- // OXCE BuildNewBaseState::placeAt uses original globe polygons; test 0,0
+ // OXCE BuildNewBaseState::placeAt uses original globe polygons; test 2 deg E, 0 lat
  // against our independently authored triangle, never an original retail map.
- if _,ok:=cmd(host,map[string]interface{}{"cmd":"place_first_base","lon":0.0,"lat":0.0,"name":"Signal Ridge"});!ok{return}
+ if _,ok:=cmd(host,map[string]interface{}{"cmd":"place_first_base","lon":0.03490658503988659,"lat":0.0,"name":"Signal Ridge"});!ok{return}
  r.HostBaseNamed=true
  hostBases,ok:=cmd(host,map[string]interface{}{"cmd":"get_soldiers"});if !ok{return}
  list,hasList:=hostBases["bases"].([]interface{})
@@ -164,6 +164,9 @@ func main(){
    if ok&&record["name"]=="Signal Ridge"{r.ClientSeesHostBase=true}
   }
  }
+ // Source-derived hold: pinned SavedGame::saveCoopToMemory refuses any base
+ // with lon==0 && lat==0, even on valid land. Host at 2 degrees in radians
+ // is required for SHARED serialization; no bypass of engine save invariants.
  // The native separate-coop client must place its own first base before
  // the host's wait-for-bases dialogue can settle the campaign. Use the same
  // proven synthetic land triangle, offset from the host's base location.
