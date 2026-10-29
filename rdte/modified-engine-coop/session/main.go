@@ -49,7 +49,7 @@ func(c *Client) states()([]string,error){
  return out,nil
 }
 func(c *Client) waitState(expected string)([]string,error){
- until:=time.Now().Add(5*time.Second)
+ until:=time.Now().Add(12*time.Second)
  for time.Now().Before(until){
   v,e:=c.states();if e!=nil{return v,e}
   for _,s:=range v{if strings.Contains(s,expected){return v,nil}}
