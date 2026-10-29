@@ -34,8 +34,8 @@ type Receipt struct {
  State MissionState `json:"state"`
  SHA256 string `json:"sha256"`
 }
-type Model struct {state MissionState}
-func New(seed uint64)*Model{return &Model{state:MissionState{Scenario:"silent-relay",Seed:seed}}}
+type Model struct {state MissionState;seen map[string]bool}
+func New(seed uint64)*Model{return &Model{state:MissionState{Scenario:"silent-relay",Seed:seed},seen:map[string]bool{}}}
 func Supported()[]string{return []string{"scan-relay","end-turn","recover-recorder"}}
 func authorized(a Audience)bool{return a==Human||a==Automation||a==Agent}
 func (m *Model) Snapshot(requestID string)Receipt{
@@ -48,6 +48,7 @@ func (m *Model) Apply(a Action)(Receipt,error){
  before:=m.Snapshot(a.RequestID)
  if !authorized(a.Audience){return before,errors.New("audience-not-authorized")}
  if a.RequestID==""{return before,errors.New("missing-request-id")}
+ if m.seen[a.RequestID]{return before,errors.New("duplicate-request-id")}
  if a.ExpectedSeq!=m.state.Sequence{return before,fmt.Errorf("stale-sequence expected=%d actual=%d",a.ExpectedSeq,m.state.Sequence)}
  switch a.Operation{
  case "scan-relay":
@@ -62,5 +63,6 @@ func (m *Model) Apply(a Action)(Receipt,error){
  default:return before,errors.New("unknown-operation")
  }
  m.state.Sequence++
+ m.seen[a.RequestID]=true
  return m.Snapshot(a.RequestID),nil
 }
