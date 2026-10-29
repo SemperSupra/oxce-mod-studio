@@ -1,0 +1,100 @@
+name: Two real modified OXCE Co-op processes (synthetic master)
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/modified-oxce-coop-two-process.yml"
+      - "rdte/modified-engine-coop/probe/**"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  dual-engine-smoke:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Fetch immutable prior source-verified co-op build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: modified-oxce-coop-build-40894894174
+          run-id: 40894894174
+          github-token: ${{ github.token }}
+          path: .out/download
+      - name: Verify prior native co-op executable archive checksum
+        run: |
+          mkdir -p .out/evidence .out/bin
+          echo '35e56b500e0ae6820e521ba1e1f93ea4025c9875079ac07ed2ff926a6dba367a  .out/download/modified-oxce-coop-linux-x86_64-BUILD-QUAL.tar.gz' | sha256sum -c
+          tar -C .out/bin -xzf .out/download/modified-oxce-coop-linux-x86_64-BUILD-QUAL.tar.gz
+          test -x .out/bin/openxcom-coop-sf-rdte
+      - name: Acquire public original synthetic assets (no commercial game files)
+        run: |
+          git init .out/public-fixtures
+          git -C .out/public-fixtures remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
+          git -C .out/public-fixtures fetch --depth 1 origin c18d460cf5a74d98b170e871c21f89d8b97205bc
+          git -C .out/public-fixtures checkout --detach FETCH_HEAD
+          git init .out/public-coop-source
+          git -C .out/public-coop-source remote add origin https://github.com/OpenXcom-Coop/OpenXcom-Coop-Mod.git
+          git -C .out/public-coop-source fetch --depth 1 origin 33f5c251d29b257130cfbb7634735d2e9c946299
+          git -C .out/public-coop-source checkout --detach FETCH_HEAD
+          node .out/public-fixtures/rdte/oxce-engine-synthetic/generate.mjs .out/synthetic
+          node .out/public-fixtures/rdte/oxce-engine-synthetic/generate-font.mjs .out/synthetic
+          node .out/public-fixtures/rdte/oxce-engine-synthetic/generate-legacy.mjs .out/synthetic/data/SYNTHETIC
+          sed -i 's/requiredExtendedVersion: "8.6"/requiredExtendedVersion: "8.4"/' .out/synthetic/user/mods/rdte-synthetic-master/metadata.yml
+          cp -a .out/public-coop-source/bin/common .out/synthetic/data/common
+          cp -a .out/public-coop-source/bin/standard .out/synthetic/data/standard
+          test ! -e .out/synthetic/data/UFO
+          test ! -e .out/synthetic/data/TFTD
+          cp -a .out/synthetic/user .out/host-user
+          cp -a .out/synthetic/user .out/client-user
+          cp -a .out/synthetic/config .out/host-config
+          cp -a .out/synthetic/config .out/client-config
+          sha256sum .out/synthetic/user/mods/rdte-synthetic-master/metadata.yml > .out/evidence/synthetic.sha256
+      - name: Install runtime SDL/JSON/net/vorbis and Xvfb only
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            libsdl1.2debian libsdl-image1.2 libsdl-gfx1.2-5 libsdl-mixer1.2 libsdl-net1.2 \
+            libsodium23 libjsoncpp25 libvorbisfile3 xvfb xauth
+      - name: Start two isolated modified OXCE processes on loopback
+        shell: bash
+        run: |
+          set +e
+          DATA="$PWD/.out/synthetic/data"
+          BIN="$PWD/.out/bin/openxcom-coop-sf-rdte"
+          OXC_TEST_PORT=0 SDL_AUDIODRIVER=dummy timeout 28s xvfb-run -a "$BIN" \
+            -data "$DATA" -user "$PWD/.out/host-user" -config "$PWD/.out/host-config" \
+            > .out/evidence/host-stdout.log 2>&1 &
+          HOST=$!
+          OXC_TEST_PORT=0 SDL_AUDIODRIVER=dummy timeout 28s xvfb-run -a "$BIN" \
+            -data "$DATA" -user "$PWD/.out/client-user" -config "$PWD/.out/client-config" \
+            > .out/evidence/client-stdout.log 2>&1 &
+          CLIENT=$!
+          sleep 3
+          go run rdte/modified-engine-coop/probe/main.go .out/host-user .out/client-user .out/evidence/two-process.json > .out/evidence/probe-stdout.log 2>&1
+          echo "probe_exit=$?" >> .out/evidence/exit.txt
+          wait "$HOST" || echo "host_exit=$?" >> .out/evidence/exit.txt
+          wait "$CLIENT" || echo "client_exit=$?" >> .out/evidence/exit.txt
+          cp .out/host-user/openxcom.log .out/evidence/host-engine.log || true
+          cp .out/client-user/openxcom.log .out/evidence/client-engine.log || true
+          echo "Real multiplayer session initiated: false" >> .out/evidence/exit.txt
+          exit 0
+      - name: Upload both-process native logs and probe receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coop-dual-process-original-asset-free-${{ github.run_id }}
+          path: .out/evidence/
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Qualify only engine-to-local-harness availability
+        if: always()
+        run: |
+          test -s .out/evidence/two-process.json
+          test "$(grep -c '"Pong": true' .out/evidence/two-process.json)" = 2
