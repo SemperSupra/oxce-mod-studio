@@ -51,68 +51,7 @@ func Check(rules,config []byte,root string) Verdict {
   for _,field:=range []string{"facilities","crafts","items"} {
     require(matches(base,"(?m)^\\s+"+field+":\\s*"),"startingBase:"+field)
   }
-  for _,name:=range []string{"mainMenu","newGameMenu","newBattleMenu","geoscape","pauseMenu","saveMenus"} {
-    require(matches(interfaces,"(?m)^\\s+- type:\\s+"+name+"\\s*$"),"interfaces:"+name)
-  }
-  for _,name:=range []string{"slackingIndicator","trainingIndicator"} {
-    require(matches(interfaces,"(?m)^\\s+- id:\\s+"+name+"\\s*$"),"interfaces:"+name)
-  }
-  require(matches(globe,"(?m)^\\s+textures:\\s*$")&&matches(globe,"(?m)^\\s+- id:\\s+0\\s*$"),"globe:nonempty-textures")
-  // Source necessary condition only: Globe::insideLand requires mapped triangles.
-  require(matches(globe,`(?m)^\s+polygons:\s*package main
-
-import (
-  "bytes"
-  "encoding/json"
-  "fmt"
-  "os"
-  "path/filepath"
-  "regexp"
-  "strings"
-)
-
-type Verdict struct {
-  EvidenceClass string
-  EngineExecuted bool
-  GameplayQualified bool
-  Missing []string
-}
-
-func block(text,key string) string {
-  lines:=strings.Split(text,"\n")
-  inside:=false
-  out:=[]string{}
-  for _,line:=range lines {
-    if !inside {
-      if line==key+":" {inside=true}
-      continue
-    }
-    if line!=""&&!strings.HasPrefix(line," ")&&!strings.HasPrefix(line,"#"){break}
-    out=append(out,line)
-  }
-  return strings.Join(out,"\n")
-}
-
-func matches(s,pattern string) bool {return regexp.MustCompile(pattern).MatchString(s)}
-
-func Check(rules,config []byte,root string) Verdict {
-  v:=Verdict{EvidenceClass:"SOURCE_DERIVED_NECESSARY_FIXTURE_CHECK_NOT_ENGINE",Missing:[]string{}}
-  require:=func(ok bool,label string){if !ok{v.Missing=append(v.Missing,label)}}
-  text:=string(rules)
-  countries:=block(text,"countries")
-  regions:=block(text,"regions")
-  base:=block(text,"startingBase")
-  interfaces:=block(text,"interfaces")
-  globe:=block(text,"globe")
-  require(matches(countries,"(?m)^\\s+- type:\\s+\\S+"),"countries:nonempty")
-  require(matches(countries,"(?m)^\\s+fundingBase:\\s+[1-9]\\d*"),"countries:fundingBase")
-  require(matches(countries,"(?m)^\\s+areas:\\s*$"),"countries:areas")
-  require(matches(regions,"(?m)^\\s+- type:\\s+\\S+"),"regions:nonempty")
-  require(matches(regions,"(?m)^\\s+areas:\\s*$"),"regions:areas")
-  for _,field:=range []string{"facilities","crafts","items"} {
-    require(matches(base,"(?m)^\\s+"+field+":\\s*"),"startingBase:"+field)
-  }
-  for _,name:=range []string{"mainMenu","newGameMenu","newBattleMenu","geoscape","pauseMenu","saveMenus"} {
+  for _,name:=range []string{"mainMenu","newGameMenu","newBattleMenu","geoscape","pauseMenu","saveMenus,"baseNaming","placeFacility","selectFacility","basescape"} {
     require(matches(interfaces,"(?m)^\\s+- type:\\s+"+name+"\\s*$"),"interfaces:"+name)
   }
   for _,name:=range []string{"slackingIndicator","trainingIndicator"} {
@@ -120,6 +59,7 @@ func Check(rules,config []byte,root string) Verdict {
   }
   require(matches(globe,"(?m)^\\s+textures:\\s*$")&&matches(globe,"(?m)^\\s+- id:\\s+0\\s*$"),"globe:nonempty-textures")
   require(strings.Contains(globe,"  polygons:")&&strings.Contains(globe,"    - [0, -15, -15, 15, -15, 0, 15]"),"globe:original-land-triangle")
+  require(strings.Contains(block(text,"facilities"),"lift: true")&&strings.Contains(block(text,"facilities"),"type: STR_SF_ACCESS_LIFT"),"facilities:original-access-lift")
   armor:=block(text,"armors")
   require(matches(armor,"(?m)^\\s+corpseBattle:\\s*\\[STR_SF_SURVEY_SHELL\\]\\s*$"),"armors:one-corpse")
   require(matches(armor,"(?m)^\\s+loftempsSet:\\s*\\[3\\]\\s*$"),"armors:one-loft-template")
