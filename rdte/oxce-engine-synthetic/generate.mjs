@@ -1,0 +1,60 @@
+#!/usr/bin/env node
+// Public-domain, independently written, synthetic-only engine-smoke data.
+// No original X-COM files, original X-COM rules, private repo code or licensed assets.
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+
+const out=resolve(process.argv[2]||'.out/engine-smoke');
+const mod=join(out,'user/mods/rdte-synthetic-master');
+mkdirSync(join(mod,'Ruleset'),{recursive:true});
+mkdirSync(join(mod,'Language'),{recursive:true});
+mkdirSync(join(out,'config'),{recursive:true});
+mkdirSync(join(out,'data'),{recursive:true});
+writeFileSync(join(mod,'metadata.yml'), [
+  'id: rdte-synthetic-master',
+  'name: "Synthetic Master for Public OXCE RDTE"',
+  'version: "0.1"',
+  'author: "Independent synthetic RDTE fixture"',
+  'isMaster: true',
+  'master: ""',
+  'reservedSpace: 1',
+  'requiredExtendedVersion: "8.6"',
+  ''
+].join('\n'));
+writeFileSync(join(mod,'Ruleset/10-synthetic.rul'),[
+  'research:',
+  '  - name: STR_RDTE_RESEARCH',
+  '    cost: 1',
+  '    points: 1',
+  'items:',
+  '  - type: STR_RDTE_CELL',
+  '    battleType: 2',
+  '    clipSize: 4',
+  '    power: 5',
+  '    damageType: 1',
+  '  - type: STR_RDTE_TOOL',
+  '    battleType: 1',
+  '    compatibleAmmo: [STR_RDTE_CELL]',
+  '    accuracySnap: 50',
+  '    tuSnap: 40',
+  ''
+].join('\n'));
+writeFileSync(join(mod,'Language/en-US.yml'),[
+  'en-US:',
+  '  STR_RDTE_RESEARCH: "Synthetic research"',
+  '  STR_RDTE_CELL: "Synthetic cell"',
+  '  STR_RDTE_TOOL: "Synthetic tool"',
+  ''
+].join('\n'));
+// Explicitly enable ONLY the synthetic master, and do not import "UFO" or "TFTD".
+writeFileSync(join(out,'config/options.cfg'),[
+  'mods:',
+  '  - id: rdte-synthetic-master',
+  '    active: true',
+  'options:',
+  '  mute: true',
+  '  lazyLoadResources: true',
+  ''
+].join('\n'));
+console.log(JSON.stringify({root:out,master:'rdte-synthetic-master',
+  originalGameAssets:false,engineBootVerified:false}));
