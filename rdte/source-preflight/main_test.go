@@ -5,7 +5,18 @@ import (
   "strings"
   "testing"
 )
-const fixture = "extraSprites:\n  - type: GlobeMarkers\n    width: 27\n    height: 3\n    subX: 3\n    subY: 3\n    files:\n      0: multiplayer/globe-markers.png\ninvs:\n  - id: STR_GROUND\n    x: 0\n    y: 140\n    type: 2\n  - id: STR_RIGHT_HAND\n    type: 1\n  - id: STR_LEFT_HAND\n    type: 1\n  - id: STR_BELT\n    type: 0\n    slots: [[0, 0], [1, 0]]\n  - id: STR_BACK_PACK\n    type: 0\n    slots: [[0, 0], [1, 0]]\nmusics:\n  - type: GMGEO1\ncrafts:\n  - type: STR_SF_RESPONDER\nalienMissions:\n  - type: STR_SF_SIGNAL_PATROL\nalienDeployments:\n  - type: STR_SF_RELAY_DEPLOYMENT\n    data:\n      - alienRank: 0\n        itemSets: [[STR_RDTE_TOOL]]\nmapScripts:\n  - type: DEFAULT\n    commands:\n      - type: addBlock\n        size: [1, 1]\n        blocks: [0]\nterrains:\n  - name: SF_RELAY\nsoldiers:\n  - type: STR_SF_SURVEYOR\narmors:\n  - type: STR_SF_SURVEY_ARMOR\n    corpseBattle: [STR_SF_SURVEY_SHELL]\n    loftempsSet: [3]\nalienRaces:\n  - id: STR_SF_QUIET_ARRAY\nitems:\n  - type: STR_SF_SURVEY_SHELL\nunits:\n  - type: STR_SF_PROBE\nalienItemLevels:\n  - [0, 0, 0]\ncountries:\n  - type: STR_SF_COUNCIL\n    fundingBase: 500\n    areas:\n      - [0, 360, -65, 65]\nregions:\n  - type: STR_SF_AREA\n    areas:\n      - [0, 360, -65, 65]\nstartingBase:\n  facilities: []\n  crafts: []\n  items: {}\ninterfaces:\n  - type: mainMenu\n  - type: newGameMenu\n  - type: newBattleMenu\n  - type: geoscape\n    elements:\n      - id: slackingIndicator\n      - id: trainingIndicator\n  - type: pauseMenu\n  - type: saveMenus\n  - type: baseNaming\n  - type: placeFacility\n  - type: selectFacility\n  - type: basescape\nfacilities:\n  - type: STR_SF_ACCESS_LIFT\n    lift: true\n    fireSound: -1\n    hitSound: -1\n    placeSound: -1\nglobe:\n  polygons:\n    - [0, -15, -15, 15, -15, 0, 15]\n  textures:\n    - id: 0\n      terrain: []\n"
+const fixture = "extraSprites:\n  - type: GlobeMarkers\n    width: 27\n    height: 3\n    subX: 3\n    subY: 3\n    files:\n      0: multiplayer/globe-markers.png\ninvs:\n  - id: STR_GROUND\n    x: 0\n    y: 140\n    type: 2\n  - id: STR_RIGHT_HAND\n    type: 1\n  - id: STR_LEFT_HAND\n    type: 1\n  - id: STR_BELT\n    type: 0\n    slots: [[0, 0], [1, 0]]\n  - id: STR_BACK_PACK\n    type: 0\n    slots: [[0, 0], [1, 0]]\nmusics:\n  - type: GMGEO1\ncrafts:\n  - type: STR_SF_RESPONDER\nalienMissions:\n  - type: STR_SF_SIGNAL_PATROL\nalienDeployments:\n  - type: STR_SF_RELAY_DEPLOYMENT\n    data:\n      - alienRank: 0\n        itemSets: [[STR_RDTE_TOOL]]\nmapScripts:\n  - type: DEFAULT\n    commands:\n      - type: addBlock\n        size: [1, 1]\n        blocks: [0]\nterrains:\n  - name: SF_RELAY\nsoldiers:\n  - type: STR_SF_SURVEYOR\narmors:\n  - type: STR_SF_SURVEY_ARMOR\n    corpseBattle: [STR_SF_SURVEY_SHELL]\n    loftempsSet: [3]\nalienRaces:\n  - id: STR_SF_QUIET_ARRAY\nitems:\n  - type: STR_SF_SURVEY_SHELL\nunits:\n  - type: STR_SF_PROBE\nalienItemLevels:\n  - [0, 0, 0]\ncountries:\n  - type: STR_SF_COUNCIL\n    fundingBase: 500\n    areas:\n      - [0, 360, -65, 65]\nregions:\n  - type: STR_SF_AREA\n    areas:\n      - [0, 360, -65, 65]\nstartingBase:\n  facilities: []\n  crafts: []\n  items: {}\ninterfaces:\n  - type: mainMenu\n  - type: newGameMenu\n  - type: newBattleMenu
+  - type: battlescape
+    elements:
+      - id: icons
+        size: [320, 56]
+  - type: inventory
+    elements:
+      - id: weight
+        color: 61
+      - id: grid
+        color: 8
+  - type: geoscape\n    elements:\n      - id: slackingIndicator\n      - id: trainingIndicator\n  - type: pauseMenu\n  - type: saveMenus\n  - type: baseNaming\n  - type: placeFacility\n  - type: selectFacility\n  - type: basescape\nfacilities:\n  - type: STR_SF_ACCESS_LIFT\n    lift: true\n    fireSound: -1\n    hitSound: -1\n    placeSound: -1\nglobe:\n  polygons:\n    - [0, -15, -15, 15, -15, 0, 15]\n  textures:\n    - id: 0\n      terrain: []\n"
 
 func validRoot(t *testing.T) string{
   t.Helper()
@@ -223,4 +234,13 @@ func TestNativeGlyphPaletteRejectsUnreadableForeground(t *testing.T){
  if e=os.WriteFile(path,b,0600);e!=nil{t.Fatal(e)}
  v:=Check([]byte(fixture),[]byte("playIntro: false"),root)
  if !strings.Contains(strings.Join(v.Missing,","),"ui:original-palette-readable-foreground"){t.Fatal(v)}
+}
+
+func TestNativeTacticalHUDRequiredBeforeBriefingConfirmation(t *testing.T){
+ bad:=strings.Replace(fixture,"  - type: battlescape","  - type: MISSING",1)
+ v:=Check([]byte(bad),[]byte("playIntro: false"),validRoot(t))
+ if !strings.Contains(strings.Join(v.Missing,","),"interfaces:battlescape"){t.Fatal(v)}
+ bad=strings.Replace(fixture,"size: [320, 56]","size: [1, 1]",1)
+ v=Check([]byte(bad),[]byte("playIntro: false"),validRoot(t))
+ if !strings.Contains(strings.Join(v.Missing,","),"interfaces:battlescape-icons"){t.Fatal(v)}
 }
