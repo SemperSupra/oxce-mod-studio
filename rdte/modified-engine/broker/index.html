@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Signal Frontier evaluation controls</title>
+<style>body{font:1.25rem system-ui;background:#111e2c;color:#f6f5ec;max-width:50rem;margin:auto;padding:1.5rem}button,input,select{font:inherit;padding:.7rem;margin:.25rem;border-radius:.3rem}button:focus-visible,input:focus-visible{outline:4px solid #ffca70}button{background:#b6ebef;color:#061827}label{display:block;margin-top:1rem}#status{white-space:pre-wrap;padding:1rem;border:2px solid #89d2dd}fieldset{margin-top:1rem}</style></head>
+<body><main><h1>Signal Frontier RDTE controls</h1>
+<p>This local, keyboard-operable companion sends input to a single OXCE window. It does not enable network multiplayer or expose all in-game controls to a screen reader yet.</p>
+<label for="token">Local authorization token</label><input id="token" type="password" autocomplete="off" aria-describedby="hint">
+<p id="hint">Copy the token printed by the local controller. Never share it or expose the service publicly.</p>
+<label for="seat">Control seat</label><select id="seat"><option>human</option><option>automation</option><option>agent</option></select>
+<button id="claim" type="button">Claim selected seat</button>
+<fieldset><legend>Game keyboard</legend><button data-key="enter">Enter / select</button><button data-key="escape">Back / Escape</button><button data-key="tab">Next / Tab</button><button data-key="space">Space</button>
+<button data-key="up">Up</button><button data-key="down">Down</button><button data-key="left">Left</button><button data-key="right">Right</button></fieldset>
+<h2>Observed screen class</h2><output id="status" role="status" aria-live="polite">No observation yet</output>
+<button id="refresh" type="button">Refresh observation</button>
+<p>Use the normal game window for visual gameplay. This companion currently provides limited state and input assistance, not full gameplay narration.</p></main>
+<script>
+const $=id=>document.getElementById(id);let revision=0;
+async function api(path,body){const opts={method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+$('token').value}};if(body!==undefined)opts.body=typeof body==='string'?body:JSON.stringify(body);const r=await fetch(path,opts);if(!r.ok)throw Error((await r.text()).slice(0,200));return r.json()}
+async function refresh(){try{const s=await api('/api/state');revision=s.Revision;$('status').textContent='Screen class: '+s.ScreenClass+'; active seat: '+s.ActiveSeat+'; commands: '+s.Commands+'; game-state semantics not yet qualified.'}catch(e){$('status').textContent='Observation unavailable: '+e.message}}
+$('refresh').onclick=refresh;$('claim').onclick=async()=>{try{await api('/api/seat',$('seat').value);await refresh()}catch(e){$('status').textContent=e.message}};
+document.querySelectorAll('[data-key]').forEach(b=>b.addEventListener('click',async()=>{try{await api('/api/action',{Seat:$('seat').value,Kind:'key',Key:b.dataset.key,Expected:revision});await refresh()}catch(e){$('status').textContent=e.message}}));
+refresh();
+</script></body></html>
