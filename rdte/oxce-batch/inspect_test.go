@@ -6,7 +6,7 @@ import (
 )
 func TestEmptyFailClosed(t *testing.T){
  r:=batch(t.TempDir())
- if len(r.NativeScenarios)!=4||r.GameplayQualified||r.MultiplayerQualified||r.AccessibilityQualified{t.Fatal("false equivalence")}
+ if len(r.NativeScenarios)!=5||r.GameplayQualified||r.MultiplayerQualified||r.AccessibilityQualified{t.Fatal("false equivalence")}
  for _,s:=range r.NativeScenarios{if s.TargetObserved{t.Fatal("absent native trace accepted")}}
 }
 func TestMenuTraceAndErrorControl(t *testing.T){

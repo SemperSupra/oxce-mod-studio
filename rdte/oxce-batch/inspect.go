@@ -69,7 +69,7 @@ func analyze(root,name,target string)Scenario{
  return s
 }
 func batch(root string)Receipt{
- tasks:=[]struct{name,target string}{{"boot","MainMenuState"},{"new-game","NewGameState"},{"new-battle","NewBattleState"},{"new-game-confirm","GeoscapeState"}}
+ tasks:=[]struct{name,target string}{{"boot","MainMenuState"},{"new-game","NewGameState"},{"new-battle","NewBattleState"},{"new-battle-confirm","BriefingState"},{"new-game-confirm","GeoscapeState"}}
  r:=Receipt{SchemaVersion:1,EvidenceClass:"ACTUAL_MODIFIED_OXCE_BATCHED_MENU_TRANSITIONS_NOT_GAMEPLAY",EngineBaseline:"MeridianOXC/OpenXcom@668880bb756852f0734cfe92e438e400080a2f4d",NativeScenarios:[]Scenario{}}
  for _,task:=range tasks{r.NativeScenarios=append(r.NativeScenarios,analyze(root,task.name,task.target))}
  return r

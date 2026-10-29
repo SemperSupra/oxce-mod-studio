@@ -70,7 +70,7 @@ jobs:
       - name: Execute three independent game-window scenarios using one binary
         shell: bash
         run: |
-          for scenario in boot new-game new-battle new-game-confirm; do
+          for scenario in boot new-game new-battle new-battle-confirm new-game-confirm; do
             echo "Scenario $scenario"
             timeout --kill-after=2s 16s xvfb-run -a bash rdte/oxce-batch/run-case.sh \
               .out/package "$scenario" ".out/evidence/$scenario" || true
