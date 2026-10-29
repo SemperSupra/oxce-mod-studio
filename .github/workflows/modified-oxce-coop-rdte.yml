@@ -37,9 +37,9 @@ jobs:
           test "$(git -C .out/coop-engine rev-parse HEAD)" = "33f5c251d29b257130cfbb7634735d2e9c946299"
           git init .out/public-control
           git -C .out/public-control remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
-          git -C .out/public-control fetch --depth 1 origin b017142cae092e04ad685703e8157195b74314b4
+          git -C .out/public-control fetch --depth 1 origin 7eedae108f9f3d0e7dbb768f7cb756abdcfc94e4
           git -C .out/public-control checkout --detach FETCH_HEAD
-          test "$(git -C .out/public-control rev-parse HEAD)" = "b017142cae092e04ad685703e8157195b74314b4"
+          test "$(git -C .out/public-control rev-parse HEAD)" = "7eedae108f9f3d0e7dbb768f7cb756abdcfc94e4"
       - name: Apply same opt-in source instrumentation to multiplayer fork
         run: |
           node .out/public-control/rdte/modified-engine/patch-engine.mjs .out/coop-engine/src/Engine/Game.cpp | tee .out/coop-evidence/patch.txt
@@ -48,7 +48,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          cmake -S .out/coop-engine -B .out/coop-build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_PACKAGE=OFF -DDEV_BUILD=OFF -DEMBED_ASSETS=OFF > .out/coop-evidence/configure.log 2>&1
+          cmake -S .out/coop-engine -B .out/coop-build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_PACKAGE=OFF -DDEV_BUILD=OFF -DEMBED_ASSETS=OFF -DCMAKE_CXX_FLAGS=-I/usr/include/jsoncpp > .out/coop-evidence/configure.log 2>&1
           c=$?
           echo "configure_exit=$c" | tee .out/coop-evidence/exits.txt
           if [ "$c" = 0 ]; then
