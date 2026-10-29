@@ -19,6 +19,8 @@ writeFileSync(join(mod,'metadata.yml'), [
   'master: ""',
   'reservedSpace: 1',
   'requiredExtendedVersion: "8.6"',
+  'loadResources:',
+  '  - SYNTHETIC',
   ''
 ].join('\n'));
 writeFileSync(join(mod,'Ruleset/10-synthetic.rul'),[

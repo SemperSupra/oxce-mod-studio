@@ -23,3 +23,7 @@ This test is explicitly **not** the private Mod Studio source, its synthetic-cor
 The initial engine startup may reject missing GEODATA, GEOGRAPH, UFOGRAPH and TERRAIN legacy assets. This failure is the first falsification target; follow-on work should generate minimal valid original-free legacy binary placeholders and rerun. **Never** present placeholders as authentic X-COM game data or copy proprietary records/graphics.
 
 Private authority: [OXCE DLE #79](https://github.com/SemperSupra/oxce-mod-studio-private/issues/79). This public-source-only PR is not a private-to-public code promotion and does not change #10 review gate, human/automation/agent product acceptance, private PR #88 or release holds. Do not merge/release without existing owner and independent gates.
+
+### VFS mount requirement (native first-failure correction)
+
+The synthetic master declares `loadResources: [SYNTHETIC]`, with generated legacy files under `data/SYNTHETIC/GEODATA`, `GEOGRAPH`, `UFOGRAPH` and `TERRAIN`, rather than loose `data/GEODATA`. Pinned OXCE's `ModInfo::load` and `FileMap::mapExtResources` register named external resource roots in the VFS. Without this mount, `GEODATA/PALETTES.DAT` is invisible even when physically generated. No commercial game art is involved.

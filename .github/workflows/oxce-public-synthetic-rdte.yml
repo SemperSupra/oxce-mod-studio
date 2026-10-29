@@ -80,7 +80,8 @@ jobs:
           node rdte/oxce-engine-synthetic/generate.mjs .out/synthetic
           cp -a .out/upstream/bin/common .out/synthetic/data/common
           cp -a .out/upstream/bin/standard .out/synthetic/data/standard
-          node rdte/oxce-engine-synthetic/generate-legacy.mjs .out/synthetic/data
+          node rdte/oxce-engine-synthetic/generate-legacy.mjs .out/synthetic/data/SYNTHETIC
+          test -s .out/synthetic/data/SYNTHETIC/GEODATA/PALETTES.DAT
           test ! -e .out/synthetic/data/UFO
           test ! -e .out/synthetic/data/TFTD
           sha256sum .out/synthetic/user/mods/rdte-synthetic-master/metadata.yml \
