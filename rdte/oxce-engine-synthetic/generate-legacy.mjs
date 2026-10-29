@@ -43,6 +43,7 @@ blankPck('GEOGRAPH','BASEBITS',512);
 blankPck('GEOGRAPH','INTICON',512);
 image('GEOGRAPH/TEXTURE.DAT',32,32);
 image('GEOGRAPH/GEOBORD.SCR',320,200);
+for(let i=0;i<20;i++)image('GEOGRAPH/BACK'+String(i).padStart(2,'0')+'.SCR',320,200);
 image('UFOGRAPH/SPICONS.DAT',32,24);
 blankPck('UFOGRAPH','CURSOR',512);
 blankPck('UFOGRAPH','SMOKE',512);
