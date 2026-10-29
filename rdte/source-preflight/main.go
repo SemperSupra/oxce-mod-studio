@@ -79,6 +79,17 @@ func Check(rules,config []byte,root string) Verdict {
   require(strings.Contains(globe,"  polygons:")&&strings.Contains(globe,"    - [0, -15, -15, 15, -15, 0, 15]"),"globe:original-land-triangle")
   require(strings.Contains(block(text,"facilities"),"lift: true")&&strings.Contains(block(text,"facilities"),"type: STR_SF_ACCESS_LIFT"),"facilities:original-access-lift")
   require(strings.Contains(block(text,"facilities"),"fireSound: -1")&&strings.Contains(block(text,"facilities"),"hitSound: -1")&&strings.Contains(block(text,"facilities"),"placeSound: -1"),"facilities:no-retail-GEO-CAT-index")
+  // A native screenshot showed near-black index-1 glyphs on a deep-blue
+  // checkerboard. Verify high-luminance 6-bit foreground in all palette banks.
+  pal,pe:=os.ReadFile(filepath.Join(root,"data","SYNTHETIC","GEODATA","PALETTES.DAT"))
+  pass:=pe==nil&&len(pal)==5*256*3
+  if pass {
+    for bank:=0;bank<5;bank++ {
+      off:=(bank*256+1)*3
+      if pal[off]<56||pal[off+1]<56||pal[off+2]<48 {pass=false;break}
+    }
+  }
+  require(pass,"ui:original-palette-readable-foreground")
   // Pinned co-op Globe::drawTarget indexes GlobeMarkers frames; synthetic
   // atlas must provide all nine original entries before the added co-op frame 9.
   sprite:=block(text,"extraSprites")
