@@ -1,0 +1,84 @@
+// Source-audited original Go inspection of the real co-op TestServer.
+package main
+import(
+ "bufio"
+ "encoding/json"
+ "fmt"
+ "net"
+ "os"
+ "path/filepath"
+ "strconv"
+ "strings"
+ "time"
+)
+type Result struct{
+ SchemaVersion int
+ EvidenceClass string
+ RealMultiplayerQualified bool
+ HostNewGameReached bool
+ HostMenuReached bool
+ HostTcpAccepted bool
+ ClientJoinAccepted bool
+ ClientLobbyReached bool
+ HostStates []string
+ ClientStates []string
+ FirstFailure string
+ Commands []string
+}
+type Client struct{name string; conn net.Conn; reader *bufio.Reader}
+func dial(path,name string)(*Client,error){
+ b,e:=os.ReadFile(filepath.Join(path,"testserver_port.txt"));if e!=nil{return nil,e}
+ p,e:=strconv.Atoi(strings.TrimSpace(string(b)));if e!=nil||p<1||p>65535{return nil,fmt.Errorf("invalid test port")}
+ c,e:=net.DialTimeout("tcp",fmt.Sprintf("127.0.0.1:%d",p),2*time.Second);if e!=nil{return nil,e}
+ return &Client{name:name,conn:c,reader:bufio.NewReader(c)},nil
+}
+func(c *Client) run(req map[string]interface{})(map[string]interface{},error){
+ c.conn.SetDeadline(time.Now().Add(4*time.Second))
+ b,_:=json.Marshal(req)
+ if _,e:=c.conn.Write(append(b,'\n'));e!=nil{return nil,e}
+ s,e:=c.reader.ReadString('\n');if e!=nil{return nil,e}
+ var v map[string]interface{};if e=json.Unmarshal([]byte(s),&v);e!=nil{return nil,e}
+ if v["ok"]!=true{return v,fmt.Errorf("command %v refused: %v",req["cmd"],v["error"])}
+ return v,nil
+}
+func(c *Client) states()([]string,error){
+ r,e:=c.run(map[string]interface{}{"cmd":"get_state"});if e!=nil{return nil,e}
+ out:=[]string{}
+ raw,ok:=r["states"].([]interface{});if !ok{return nil,fmt.Errorf("missing states array")}
+ for _,v:=range raw{if name,ok:=v.(string);ok{out=append(out,name)}}
+ return out,nil
+}
+func(c *Client) waitState(expected string)([]string,error){
+ until:=time.Now().Add(12*time.Second)
+ for time.Now().Before(until){
+  v,e:=c.states();if e!=nil{return v,e}
+  for _,s:=range v{if strings.Contains(s,expected){return v,nil}}
+  time.Sleep(150*time.Millisecond)
+ }
+ latest,e:=c.states();if e!=nil{return latest,e}
+ return latest,fmt.Errorf("timeout waiting for %s; states=%v",expected,latest)
+}
+func main(){
+ if len(os.Args)!=4{fmt.Fprintln(os.Stderr,"usage: session_probe <host-user> <client-user> <out.json>");os.Exit(2)}
+ r:=Result{SchemaVersion:1,EvidenceClass:"REAL_COOP_ENGINE_SESSION_PROGRESS_NOT_ACCEPTANCE",Commands:[]string{}}
+ defer func(){out,_:=json.MarshalIndent(r,"","  ");os.WriteFile(os.Args[3],append(out,'\n'),0644);fmt.Println(string(out))}()
+ host,e:=dial(os.Args[1],"host");if e!=nil{r.FirstFailure="dial-host: "+e.Error();return};defer host.conn.Close()
+ client,e:=dial(os.Args[2],"client");if e!=nil{r.FirstFailure="dial-client: "+e.Error();return};defer client.conn.Close()
+ cmd:=func(c *Client,v map[string]interface{})(map[string]interface{},bool){
+  r.Commands=append(r.Commands,c.name+":"+fmt.Sprint(v["cmd"]))
+  out,e:=c.run(v);if e!=nil{r.FirstFailure=c.name+":"+e.Error();return out,false};return out,true
+ }
+ if _,ok:=cmd(host,map[string]interface{}{"cmd":"open_new_game","mode":"coop"});!ok{return}
+ r.HostStates,e=host.waitState("NewGameState");if e!=nil{r.FirstFailure="host-new-game-state: "+e.Error();return}
+ r.HostNewGameReached=true
+ if _,ok:=cmd(host,map[string]interface{}{"cmd":"newgame_ok"});!ok{return}
+ r.HostStates,e=host.waitState("HostMenu");if e!=nil{r.FirstFailure="host-menu: "+e.Error();return}
+ r.HostMenuReached=true
+ if _,ok:=cmd(host,map[string]interface{}{"cmd":"host_tcp","server":"SignalFrontierRDTE","port":"47900","player":"HostPlayer"});!ok{return}
+ r.HostTcpAccepted=true
+ if _,ok:=cmd(client,map[string]interface{}{"cmd":"join_tcp","ip":"127.0.0.1","port":"47900","player":"ClientPlayer"});!ok{return}
+ r.ClientJoinAccepted=true
+ r.ClientStates,e=client.waitState("LobbyMenu");if e!=nil{r.FirstFailure="client-lobby: "+e.Error();return}
+ r.ClientLobbyReached=true
+ // Transport success does not prove the session reached world sync/battle.
+}
