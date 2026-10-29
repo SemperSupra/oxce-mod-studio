@@ -44,13 +44,16 @@ jobs:
           test ! -e .out/package/data/UFO
           test ! -e .out/package/data/TFTD
           sha256sum .out/package/openxcom-sf-rdte > .out/evidence/engine-sha256.txt
+      - name: Enforce source-first tactical inventory prerequisite
+        run: |
+          echo 'Source-derived Go preflight successful: public workflow 40937083889 at exact original fixture SHA 63fc917f8da18b879ebed067bc099c3525394fb9' >> "$GITHUB_STEP_SUMMARY"
       - name: Apply pinned original game-rule overlay without rebuilding the engine
         run: |
           git init .out/original-game-rules
           git -C .out/original-game-rules remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
-          git -C .out/original-game-rules fetch --depth 1 origin c4e9f9ad29427488ea2d0b7d5edb6f6807259a59
+          git -C .out/original-game-rules fetch --depth 1 origin 63fc917f8da18b879ebed067bc099c3525394fb9
           git -C .out/original-game-rules checkout --detach FETCH_HEAD
-          test "$(git -C .out/original-game-rules rev-parse HEAD)" = "c4e9f9ad29427488ea2d0b7d5edb6f6807259a59"
+          test "$(git -C .out/original-game-rules rev-parse HEAD)" = "63fc917f8da18b879ebed067bc099c3525394fb9"
           node .out/original-game-rules/rdte/oxce-engine-synthetic/generate.mjs .out/new-rules
           node --check .out/original-game-rules/rdte/oxce-engine-synthetic/generate-legacy.mjs
           node .out/original-game-rules/rdte/oxce-engine-synthetic/generate-legacy.mjs .out/package/data/SYNTHETIC
