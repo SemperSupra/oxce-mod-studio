@@ -91,6 +91,13 @@ func Check(rules,config []byte,root string) Verdict {
     bytes.Equal(marker[:8],[]byte{137,80,78,71,13,10,26,10})&&
     bytes.Equal(marker[16:24],[]byte{0,0,0,27,0,0,0,3})&&len(marker)>=26&&marker[24]==8&&marker[25]==3,
     "original-coop-art:globe-markers-27x3")
+  // Native controls revealed unresolved menu tokens and unreadable briefing text.
+  // Check only the original en-US file; other languages require separate font HIL.
+  locale,le:=os.ReadFile(filepath.Join(root,"user","mods","rdte-synthetic-master","Language","en-US.yml"))
+  require(le==nil,"language:english-present")
+  for _,key:=range []string{"STR_MISSION","STR_CRAFT","STR_EQUIP_CRAFT","STR_TERROR_SITE","STR_SF_RELAY_DEPLOYMENT_BRIEFING"} {
+    require(le==nil&&strings.Contains(string(locale),"  "+key+": "),"language:"+key)
+  }
   // Pinned OXCE 8.6.5 Mod::loadRule iterates "invs" with "id".
   // RuleInventory::load reads numeric type: INV_GROUND=2, INV_HAND=1.
   invs:=block(text,"invs")
