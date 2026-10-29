@@ -48,9 +48,9 @@ jobs:
         run: |
           git init .out/original-game-rules
           git -C .out/original-game-rules remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
-          git -C .out/original-game-rules fetch --depth 1 origin d838d38afb6da8deb3202a22f17a696f5641a345
+          git -C .out/original-game-rules fetch --depth 1 origin 9dbaa7e818aca3bea8ce5418ee3fdefd93ab6412
           git -C .out/original-game-rules checkout --detach FETCH_HEAD
-          test "$(git -C .out/original-game-rules rev-parse HEAD)" = "d838d38afb6da8deb3202a22f17a696f5641a345"
+          test "$(git -C .out/original-game-rules rev-parse HEAD)" = "9dbaa7e818aca3bea8ce5418ee3fdefd93ab6412"
           node .out/original-game-rules/rdte/oxce-engine-synthetic/generate.mjs .out/new-rules
           node --check .out/original-game-rules/rdte/oxce-engine-synthetic/generate-legacy.mjs
           node .out/original-game-rules/rdte/oxce-engine-synthetic/generate-legacy.mjs .out/package/data/SYNTHETIC
