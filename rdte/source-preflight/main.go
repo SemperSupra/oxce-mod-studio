@@ -89,7 +89,7 @@ func Check(rules,config []byte,root string) Verdict {
   marker,me:=os.ReadFile(filepath.Join(root,"data","SYNTHETIC","multiplayer","globe-markers.png"))
   require(me==nil&&len(marker)>=24&&
     bytes.Equal(marker[:8],[]byte{137,80,78,71,13,10,26,10})&&
-    bytes.Equal(marker[16:24],[]byte{0,0,0,27,0,0,0,3}),
+    bytes.Equal(marker[16:24],[]byte{0,0,0,27,0,0,0,3})&&len(marker)>=26&&marker[24]==8&&marker[25]==3,
     "original-coop-art:globe-markers-27x3")
   // Pinned OXCE 8.6.5 Mod::loadRule iterates "invs" with "id".
   // RuleInventory::load reads numeric type: INV_GROUND=2, INV_HAND=1.
