@@ -112,6 +112,13 @@ func Check(rules,config []byte,root string) Verdict {
     b,err:=os.ReadFile(filepath.Join(root,"data","SYNTHETIC","UNITS","SIGNALRELAY"+extension))
     require(err==nil&&len(b)>0,"units:signal-relay"+extension)
   }
+  // Necessary OXCE binary resource invariants, not tactical/visual acceptance.
+  mcd,err:=os.ReadFile(filepath.Join(root,"data","SYNTHETIC","TERRAIN","BLANKS.MCD"))
+  require(err==nil&&len(mcd)==124,"terrain:original-two-record-MCD")
+  sfMap,err:=os.ReadFile(filepath.Join(root,"data","SYNTHETIC","MAPS","SFREL00.MAP"))
+  require(err==nil&&len(sfMap)==403&&bytes.Equal(sfMap[:3],[]byte{10,10,1}),"maps:original-10x10-relay")
+  routes,err:=os.ReadFile(filepath.Join(root,"data","SYNTHETIC","ROUTES","SFREL00.RMP"))
+  require(err==nil&&len(routes)==96,"routes:original-four-node-relay")
   require(bytes.Contains(config,[]byte("playIntro: false")),"config:disable-retail-intro")
   for _,rule:=range []struct{key,expr string}{
     {"musics:GMGEO1", "musics"},

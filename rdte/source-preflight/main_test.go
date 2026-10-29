@@ -27,6 +27,15 @@ func validRoot(t *testing.T) string{
   for _,ext:=range []string{".PCK",".TAB"}{
     if err:=os.WriteFile(filepath.Join(unit,"SIGNALRELAY"+ext),[]byte{0,1},0600);err!=nil{t.Fatal(err)}
   }
+  for _,artifact:=range []struct{dir,name string;raw []byte}{
+    {"TERRAIN","BLANKS.MCD",make([]byte,124)},
+    {"MAPS","SFREL00.MAP",func()[]byte{b:=make([]byte,403);b[0]=10;b[1]=10;b[2]=1;return b}()},
+    {"ROUTES","SFREL00.RMP",make([]byte,96)},
+  }{
+    dir:=filepath.Join(root,"data","SYNTHETIC",artifact.dir)
+    if err:=os.MkdirAll(dir,0700);err!=nil{t.Fatal(err)}
+    if err:=os.WriteFile(filepath.Join(dir,artifact.name),artifact.raw,0600);err!=nil{t.Fatal(err)}
+  }
   return root
 }
 func TestNecessarySourceConditions(t *testing.T){
@@ -135,4 +144,19 @@ func TestSyntheticOriginRequiresRealCountryAndRegion(t *testing.T){
  bad=strings.Replace(fixture,"      - [0, 360, -65, 65]","      - [10, 340, -65, 65]",-1)
  v=Check([]byte(bad),[]byte("playIntro: false"),validRoot(t))
  if !strings.Contains(strings.Join(v.Missing,","),"regions:contains-origin"){t.Fatal(v)}
+}
+
+func TestMissingOriginalTerrainBinaryFailsClosed(t *testing.T){
+ root:=validRoot(t)
+ if err:=os.Remove(filepath.Join(root,"data","SYNTHETIC","TERRAIN","BLANKS.MCD"));err!=nil{t.Fatal(err)}
+ m:=Check([]byte(fixture),[]byte("playIntro: false"),root)
+ if !strings.Contains(strings.Join(m.Missing,","),"terrain:original-two-record-MCD"){t.Fatal(m)}
+}
+func TestBadMapAndRouteLengthsFailClosed(t *testing.T){
+ root:=validRoot(t)
+ if err:=os.WriteFile(filepath.Join(root,"data","SYNTHETIC","MAPS","SFREL00.MAP"),[]byte{10,11,1},0600);err!=nil{t.Fatal(err)}
+ if err:=os.WriteFile(filepath.Join(root,"data","SYNTHETIC","ROUTES","SFREL00.RMP"),[]byte{0},0600);err!=nil{t.Fatal(err)}
+ m:=Check([]byte(fixture),[]byte("playIntro: false"),root)
+ errors:=strings.Join(m.Missing,",")
+ if !strings.Contains(errors,"maps:original-10x10-relay")||!strings.Contains(errors,"routes:original-four-node-relay"){t.Fatal(m)}
 }
