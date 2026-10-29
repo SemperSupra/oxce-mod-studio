@@ -5,7 +5,7 @@ import (
   "strings"
   "testing"
 )
-const fixture = "musics:\n  - type: GMGEO1\ncrafts:\n  - type: STR_SF_RESPONDER\nalienDeployments:\n  - type: STR_SF_RELAY_DEPLOYMENT\nterrains:\n  - name: SF_RELAY\nsoldiers:\n  - type: STR_SF_SURVEYOR\narmors:\n  - type: STR_SF_SURVEY_ARMOR\n    corpseBattle: [STR_SF_SURVEY_SHELL]\n    loftempsSet: [3]\nalienRaces:\n  - id: STR_SF_QUIET_ARRAY\nitems:\n  - type: STR_SF_SURVEY_SHELL\nunits:\n  - type: STR_SF_PROBE\nalienItemLevels:\n  - [0, 0, 0]\ncountries:\n  - type: STR_SF_COUNCIL\n    fundingBase: 500\n    areas:\n      - [10, 340, -65, 65]\nregions:\n  - type: STR_SF_AREA\n    areas:\n      - [10, 340, -65, 65]\nstartingBase:\n  facilities: []\n  crafts: []\n  items: {}\ninterfaces:\n  - type: mainMenu\n  - type: newGameMenu\n  - type: newBattleMenu\n  - type: geoscape\n    elements:\n      - id: slackingIndicator\n      - id: trainingIndicator\n  - type: pauseMenu\n  - type: saveMenus\nglobe:\n  textures:\n    - id: 0\n      terrain: []\n"
+const fixture = "musics:\n  - type: GMGEO1\ncrafts:\n  - type: STR_SF_RESPONDER\nalienDeployments:\n  - type: STR_SF_RELAY_DEPLOYMENT\nterrains:\n  - name: SF_RELAY\nsoldiers:\n  - type: STR_SF_SURVEYOR\narmors:\n  - type: STR_SF_SURVEY_ARMOR\n    corpseBattle: [STR_SF_SURVEY_SHELL]\n    loftempsSet: [3]\nalienRaces:\n  - id: STR_SF_QUIET_ARRAY\nitems:\n  - type: STR_SF_SURVEY_SHELL\nunits:\n  - type: STR_SF_PROBE\nalienItemLevels:\n  - [0, 0, 0]\ncountries:\n  - type: STR_SF_COUNCIL\n    fundingBase: 500\n    areas:\n      - [10, 340, -65, 65]\nregions:\n  - type: STR_SF_AREA\n    areas:\n      - [10, 340, -65, 65]\nstartingBase:\n  facilities: []\n  crafts: []\n  items: {}\ninterfaces:\n  - type: mainMenu\n  - type: newGameMenu\n  - type: newBattleMenu\n  - type: geoscape\n    elements:\n      - id: slackingIndicator\n      - id: trainingIndicator\n  - type: pauseMenu\n  - type: saveMenus\nglobe:\n  polygons:\n    - [0, -15, -15, 15, -15, 0, 15]\n  textures:\n    - id: 0\n      terrain: []\n"
 
 func validRoot(t *testing.T) string{
   t.Helper()
@@ -72,4 +72,10 @@ func TestTacticalAndMusicMissingFailClosed(t *testing.T){
 func TestPreflightNeverClaimsNativeGameplay(t *testing.T){
   v:=Check([]byte(fixture),[]byte("playIntro: false"),validRoot(t))
   if v.EvidenceClass!="SOURCE_DERIVED_NECESSARY_FIXTURE_CHECK_NOT_ENGINE"||v.EngineExecuted||v.GameplayQualified{t.Fatal(v)}
+}
+
+func TestBasePlacementNeedsOriginalLand(t *testing.T) {
+ bad:=strings.Replace(fixture,"    - [0, -15, -15, 15, -15, 0, 15]","    - [0, 0, 0, 0, 0, 0, 0]",1)
+ v:=Check([]byte(bad),[]byte("playIntro: false"),validRoot(t))
+ if !strings.Contains(strings.Join(v.Missing,","),"globe:original-land-triangle"){t.Fatal(v)}
 }
