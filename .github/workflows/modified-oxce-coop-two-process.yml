@@ -46,6 +46,16 @@ jobs:
           node .out/public-fixtures/rdte/oxce-engine-synthetic/generate.mjs .out/synthetic
           node .out/public-fixtures/rdte/oxce-engine-synthetic/generate-font.mjs .out/synthetic
           node .out/public-fixtures/rdte/oxce-engine-synthetic/generate-legacy.mjs .out/synthetic/data/SYNTHETIC
+          # Original GPL-compatible Signal Frontier art source; never import retail assets.
+          git init .out/public-original-art
+          git -C .out/public-original-art remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
+          git -C .out/public-original-art fetch --depth 1 origin 42be17ae50f9c323592e187572f57e1701e0f442
+          git -C .out/public-original-art checkout --detach FETCH_HEAD
+          (cd .out/public-original-art/rdte/signal-frontier-assets && go test ./... && go run . "$GITHUB_WORKSPACE/.out/original-art")
+          mkdir -p .out/synthetic/data/SYNTHETIC/multiplayer
+          cp .out/original-art/Art/signal-relay.png .out/synthetic/data/SYNTHETIC/multiplayer/base.png
+          cp .out/original-art/Art/signal-relay.png .out/synthetic/data/SYNTHETIC/multiplayer/avatar.png
+          sha256sum .out/synthetic/data/SYNTHETIC/multiplayer/*.png > .out/evidence/original-multiplayer-art.sha256
           sed -i 's/requiredExtendedVersion: "8.6"/requiredExtendedVersion: "8.4"/' .out/synthetic/user/mods/rdte-synthetic-master/metadata.yml
           sed -i '/^  mute: true$/a\  playIntro: false' .out/synthetic/config/options.cfg
           grep -q 'playIntro: false' .out/synthetic/config/options.cfg
