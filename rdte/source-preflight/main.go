@@ -93,6 +93,13 @@ func Check(rules,config []byte,root string) Verdict {
   // Absence of a mission entry was the next native GDB first failure.
   mission:=block(text,"alienMissions")
   require(matches(mission,"(?m)^\\s+- type:\\s+STR_SF_SIGNAL_PATROL\\s*$"),"alienMissions:nonempty-synthetic-patrol")
+  // RuleTerrain defaults to DEFAULT; pinned Mod::loadRuleset reads
+  // mapScripts type/commands and MapScript::load expects addBlock.
+  script:=block(text,"mapScripts")
+  require(matches(script,"(?m)^\\s+- type:\\s+DEFAULT\\s*$")&&
+    matches(script,"(?m)^\\s+- type:\\s+addBlock\\s*$")&&
+    matches(script,"(?m)^\\s+blocks:\\s+\\[0\\]\\s*$"),
+    "mapScripts:DEFAULT-original-addBlock")
   armor:=block(text,"armors")
   require(matches(armor,"(?m)^\\s+corpseBattle:\\s*\\[STR_SF_SURVEY_SHELL\\]\\s*$"),"armors:one-corpse")
   require(matches(armor,"(?m)^\\s+loftempsSet:\\s*\\[3\\]\\s*$"),"armors:one-loft-template")
