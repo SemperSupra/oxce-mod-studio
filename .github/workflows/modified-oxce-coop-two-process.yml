@@ -35,8 +35,8 @@ jobs:
       - name: Read verified original-game preflight result
         uses: actions/download-artifact@v4
         with:
-          name: oxce-source-preflight-40945689664
-          run-id: 40945689664
+          name: oxce-source-preflight-40946598446
+          run-id: 40946598446
           github-token: ${{ github.token }}
           path: .out/necessary-source-gate
       - name: Fail closed before native co-op if fixture prerequisites failed
@@ -60,7 +60,7 @@ jobs:
         run: |
           git init .out/public-fixtures
           git -C .out/public-fixtures remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
-          git -C .out/public-fixtures fetch --depth 1 origin 5b22813cf674ad0f37efdaf5133cdbb516b0f6bc
+          git -C .out/public-fixtures fetch --depth 1 origin 5068852ffbef94e1111ab3bc955a20c9fe849547
           git -C .out/public-fixtures checkout --detach FETCH_HEAD
           git init .out/public-coop-source
           git -C .out/public-coop-source remote add origin https://github.com/OpenXcom-Coop/OpenXcom-Coop-Mod.git
