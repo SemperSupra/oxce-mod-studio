@@ -17,6 +17,9 @@ function palettes(){
     p[at]=(i+bank*3)%64;
     p[at+1]=(i*3+bank*5)%64;
     p[at+2]=(i*7+bank*11)%64;
+    // Original UI palette: index 1 is briefing/button glyph foreground.
+    // Contrast with indexed checkerboard backgrounds 2 and 3.
+    if(i===1){p[at]=61;p[at+1]=60;p[at+2]=52;}
   }
   put('GEODATA/PALETTES.DAT',p);
   const b=Buffer.alloc(128*3);
