@@ -31,11 +31,12 @@ jobs:
           mkdir -p .out/evidence
           git init .out/fixtures
           git -C .out/fixtures remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
-          git -C .out/fixtures fetch --depth 1 origin a3cc230c69285b93b37cdfccd6e4f438f6baefbf
+          git -C .out/fixtures fetch --depth 1 origin a28019f1d3d6bc4129ce4673930308ee9d237eb6
           git -C .out/fixtures checkout --detach FETCH_HEAD
-          test "$(git -C .out/fixtures rev-parse HEAD)" = "a3cc230c69285b93b37cdfccd6e4f438f6baefbf"
+          test "$(git -C .out/fixtures rev-parse HEAD)" = "a28019f1d3d6bc4129ce4673930308ee9d237eb6"
           node --check .out/fixtures/rdte/oxce-engine-synthetic/generate.mjs
           node .out/fixtures/rdte/oxce-engine-synthetic/generate.mjs .out/generated
+          node .out/fixtures/rdte/oxce-engine-synthetic/generate-font.mjs .out/generated
           node .out/fixtures/rdte/oxce-engine-synthetic/generate-legacy.mjs .out/generated/data/SYNTHETIC
           test -s .out/generated/data/SYNTHETIC/SOUND/gmgeo1.wav
           test -s .out/generated/data/SYNTHETIC/UNITS/SIGNALRELAY.PCK
@@ -49,6 +50,7 @@ jobs:
           cp .out/art/Art/signal-relay.png .out/generated/data/SYNTHETIC/multiplayer/base.png
           cp .out/art/Art/signal-relay.png .out/generated/data/SYNTHETIC/multiplayer/avatar.png
           sha256sum .out/generated/user/mods/rdte-synthetic-master/Ruleset/10-synthetic.rul .out/generated/data/SYNTHETIC/multiplayer/*.png > .out/evidence/inputs.sha256
+          sha256sum .out/generated/user/mods/rdte-synthetic-master/Language/rdte-fonts.* >> .out/evidence/inputs.sha256
       - name: Produce bounded source necessary-condition verdict
         run: cd rdte/source-preflight && go run . "$GITHUB_WORKSPACE/.out/generated" "$GITHUB_WORKSPACE/.out/evidence/preflight.json"
       - name: Preserve evidence on failure
