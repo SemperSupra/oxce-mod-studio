@@ -56,7 +56,7 @@ func interfaceRecord(interfaces,kind string)string {
   i:=strings.Index(interfaces,anchor)
   if i<0{return ""}
   body:=interfaces[i+len(anchor):]
-  if n:=strings.Index(body,"\n  - type:");n>=0{body=body[:n]}
+  if n:=strings.Index(body,"\n  - type:");n>=0{body=body[:n]+"\n"}
   return body
 }
 func Check(rules,config []byte,root string) Verdict {
