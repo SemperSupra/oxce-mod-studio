@@ -432,7 +432,9 @@ func main(){
    port,_:=listener["port"].(string);if port==""{fail("host-resume-port-absent");return}
    if _,err:=host.waitState("LobbyMenu");err!=nil{fail("host-resume-lobby: "+err.Error());return}
    lobby,ok:=cmd(host,map[string]interface{}{"cmd":"lobby_state"});if !ok{fail("host-resume-lobby-read: "+r.FirstFailure);return}
-   r.RejoinHostLobbyMode=int(lobby["lobbyMode"].(float64))
+   modeValue,isNumber:=lobby["lobbyMode"].(float64)
+   if !isNumber{fail("resume-lobby-mode-missing");return}
+   r.RejoinHostLobbyMode=int(modeValue)
    if r.RejoinHostLobbyMode!=2{fail(fmt.Sprintf("not-a-resume-lobby:%v",r.RejoinHostLobbyMode));return}
    if _,ok:=cmd(client,map[string]interface{}{"cmd":"join_tcp","ip":"127.0.0.1","port":port,"player":"ClientPlayer"});!ok{fail("client-rejoin-tcp: "+r.FirstFailure);return}
    r.RejoinClientJoined=true
