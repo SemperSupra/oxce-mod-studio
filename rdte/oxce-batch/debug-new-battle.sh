@@ -26,6 +26,10 @@ sleep 2
 # Reproduce the new first fatal: Briefing CONFIRM enters tactical inventory.
 # Game mailbox uses engine-local 640x400 coordinates, not screenshot pixels.
 printf 'CLICK 320 346\n' >> "$dest/commands.txt"
+if [ "${SF_DEBUG_INVENTORY_CONFIRM:-0}" = 1 ]; then
+  sleep 2
+  printf 'CLICK 510 22\n' >> "$dest/commands.txt"
+fi
 wait "$debugger" || echo "gdb_exit=$?" > "$dest/gdb-exit.txt"
 # A missing backtrace is an open diagnostic, never treated as engine pass.
 grep -E 'Program received signal|Segmentation fault|^#([0-9]+) ' "$dest/gdb.log" \
