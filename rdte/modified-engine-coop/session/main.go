@@ -57,6 +57,10 @@ type Result struct{
  PostAdvanceClockEqual bool
  HostTimeAfterAdvance interface{}
  ClientTimeAfterAdvance interface{}
+ HostSaveMarkers map[string]interface{}
+ ClientSaveMarkers map[string]interface{}
+ HostThrowawaySaveLoad bool
+ ClientThrowawaySaveLoad bool
  FirstFailure string
  Commands []string
 }
@@ -318,6 +322,22 @@ func main(){
  if !r.HostTimeAdvanced||!r.ClientTimeAdvanced||!r.PostAdvanceClockEqual {
    r.FirstFailure=fmt.Sprintf("real-geoscape-clock-not-mirrored: host=%v client=%v",r.HostTimeAfterAdvance,r.ClientTimeAfterAdvance)
    return
+ }
+ // Validate co-op campaign identity without assuming that an on-screen
+ // SAVE action is equivalent to a synchronized save. The test-only native
+ // reload_save_roundtrip loads through the real SavedGame::load parser into
+ // a THROWAWAY world, leaving the currently running session untouched.
+ for _,pair:=range []struct{c *Client; markers *map[string]interface{};round *bool}{
+   {host,&r.HostSaveMarkers,&r.HostThrowawaySaveLoad},
+   {client,&r.ClientSaveMarkers,&r.ClientThrowawaySaveLoad},
+ }{
+   m,ok:=cmd(pair.c,map[string]interface{}{"cmd":"save_markers"});if !ok{return}
+   if m["coop"]!=true{r.FirstFailure=pair.c.name+"-missing-coop-save-marker";return}
+   expected:=float64(0);if mode=="shared"{expected=1}
+   if m["campaignType"]!=expected{r.FirstFailure=pair.c.name+"-wrong-campaign-type-in-save-marker";return}
+   *pair.markers=m
+   if _,ok:=cmd(pair.c,map[string]interface{}{"cmd":"reload_save_roundtrip"});!ok{return}
+   *pair.round=true
  }
  // Still no shared world checksum or tactical turn-by-turn equivalence.
  // Distinct single-player saves in a co-op lobby are not proof of sync.
