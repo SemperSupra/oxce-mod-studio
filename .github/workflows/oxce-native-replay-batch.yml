@@ -149,6 +149,25 @@ jobs:
           console.log(JSON.stringify(receipt));
           if(!receipt.InventoryObserved||!receipt.FirstTurnOverlayObserved||!returnToBattle||firstFatal)process.exit(1);
           NODE
+      - name: Keyboard-only NextTurn confirmation smoke (bounded accessibility evidence)
+        shell: bash
+        run: |
+          SF_INVENTORY_CONFIRM=1 SF_NEXT_TURN_CONTINUE=1 SF_NEXT_TURN_KEYBOARD=1 timeout --kill-after=2s 20s xvfb-run -a bash rdte/oxce-batch/run-case.sh \
+            .out/package new-battle-briefing-continue .out/evidence/keyboard-next-turn || true
+          node <<'NODE'
+          const fs=require('fs');const root='.out/evidence/keyboard-next-turn';
+          const commands=fs.existsSync(root+'/commands.txt')?fs.readFileSync(root+'/commands.txt','utf8'):'';
+          const raw=fs.existsSync(root+'/trace.jsonl')?fs.readFileSync(root+'/trace.jsonl','utf8'):'';
+          const classes=raw.split(/\r?\n/).filter(Boolean).flatMap(s=>{try{return [JSON.parse(s).class||'']}catch{return []}});
+          const turn=classes.findIndex(x=>x.includes('NextTurnState'));
+          const returned=turn>=0&&classes.slice(turn+1).some(x=>x.includes('BattlescapeState'));
+          const log=fs.existsSync(root+'/user/openxcom.log')?fs.readFileSync(root+'/user/openxcom.log','utf8'):'';
+          const firstFatal=log.split(/\r?\n/).find(x=>x.includes('[FATAL]'))||'';
+          const receipt={EvidenceClass:'REAL_NATIVE_KEYBOARD_KEY13_NEXTTURN_SCREEN_DISMISSAL_ONLY',KeyboardKey13Sent:commands.includes('KEY 13'),TurnScreenObserved:turn>=0,ReturnedToBattlescape:returned,FirstFatal:firstFatal,AssistiveTechnologyQualified:false};
+          fs.writeFileSync('.out/evidence/keyboard-next-turn-receipt.json',JSON.stringify(receipt,null,2)+'\n');
+          console.log(JSON.stringify(receipt));
+          if(!receipt.KeyboardKey13Sent||!receipt.TurnScreenObserved||!receipt.ReturnedToBattlescape||firstFatal)process.exit(1);
+          NODE
       - name: Exercise genuine Battlescape End Turn button and inspect faction transition
         shell: bash
         run: |
