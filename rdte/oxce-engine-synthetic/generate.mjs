@@ -66,7 +66,7 @@ writeFileSync(join(mod,'Ruleset/10-synthetic.rul'),[
   '    subX: 32',
   '    subY: 16',
   '    files:',
-  '      0: multiplayer/kneel-button.png'
+  '      0: multiplayer/kneel-button.png',
   '  - type: oxceLinksInv',
   '    singleImage: true',
   '    width: 23',
