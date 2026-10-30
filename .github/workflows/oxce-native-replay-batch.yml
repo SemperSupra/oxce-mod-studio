@@ -156,6 +156,29 @@ jobs:
           console.log(JSON.stringify(receipt));
           if(!receipt.InventoryObserved||!receipt.FirstNextTurn||!receipt.ActiveBattlescape||!receipt.SecondNextTurn||fatal)process.exit(1);
           NODE
+      - name: Exercise second turn overlay dismissal and observe native continuation
+        shell: bash
+        run: |
+          SF_INVENTORY_CONFIRM=1 SF_NEXT_TURN_CONTINUE=1 SF_BATTLE_END_TURN=1 SF_SECOND_NEXT_TURN_CONTINUE=1 timeout --kill-after=2s 35s xvfb-run -a bash rdte/oxce-batch/run-case.sh \
+            .out/package new-battle-briefing-continue .out/evidence/second-turn-confirm || true
+          node <<'NODE'
+          const fs=require('fs');
+          const root='.out/evidence/second-turn-confirm';
+          const raw=fs.existsSync(root+'/trace.jsonl')?fs.readFileSync(root+'/trace.jsonl','utf8'):'';
+          const states=raw.split(/\r?\n/).filter(Boolean).flatMap(s=>{try{return [JSON.parse(s).class||'']}catch{return []}});
+          const inv=states.findIndex(s=>s.includes('InventoryState'));
+          const first=states.findIndex((s,i)=>i>inv&&s.includes('NextTurnState'));
+          const battle=states.findIndex((s,i)=>i>first&&s.includes('BattlescapeState'));
+          const second=states.findIndex((s,i)=>i>battle&&s.includes('NextTurnState'));
+          const post=states.slice(second+1);
+          const next=post.find(s=>s.includes('BattlescapeState')||s.includes('DebriefingState'))||'';
+          const log=fs.existsSync(root+'/user/openxcom.log')?fs.readFileSync(root+'/user/openxcom.log','utf8'):'';
+          const fatal=log.split(/\r?\n/).find(x=>x.includes('[FATAL]'))||'';
+          const receipt={EvidenceClass:'ACTUAL_NATIVE_SECOND_TURN_DISMISSAL_TO_BATTLE_OR_DEBRIEF_NOT_AI_QUALIFIED',FirstInventory:inv>=0,FirstTurnOverlay:first>inv,FirstBattle:battle>first,SecondTurnOverlay:second>battle,AfterSecondTurn:next,FirstFatal:fatal,EnemyActionQualified:false,GameplayQualified:false};
+          fs.writeFileSync('.out/evidence/second-turn-continuation-receipt.json',JSON.stringify(receipt,null,2)+'\n');
+          console.log(JSON.stringify(receipt));
+          if(!receipt.FirstInventory||!receipt.FirstTurnOverlay||!receipt.FirstBattle||!receipt.SecondTurnOverlay||!receipt.AfterSecondTurn||fatal)process.exit(1);
+          NODE
       - name: Symbolize first native tactical crash using the same verified engine binary
         if: failure()
         shell: bash
