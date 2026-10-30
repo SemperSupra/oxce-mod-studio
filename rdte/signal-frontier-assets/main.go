@@ -113,8 +113,9 @@ func encodeCAT(wav []byte,n int)[]byte{
 }
 func generate(root string) error{
  pix:=draw()
- second:=make([]uint8,len(pix));for i,v:=range pix{second[i]=v;if i%11==0 {second[i]=5}}
- pck,tab,err:=encodePCK([][]uint8{pix,second},w,h)
+ // Render original full-size 32x40 directional unit art at all 512
+ // engine-consumable frame indices, not two 16x16 technical glyphs.
+ pck,tab,err:=encodePCK(surveyUnitFrames(),battleSpriteW,battleSpriteH)
  if err!=nil{return err}
  img,err:=spritePNG(pix);if err!=nil{return err}
  outputs:=map[string][]byte{
