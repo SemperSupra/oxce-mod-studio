@@ -61,6 +61,16 @@ func interfaceRecord(interfaces,kind string)string {
   if n:=strings.Index(body,"\n  - type:");n>=0{body=body[:n]+"\n"}
   return body
 }
+// extraSpriteEntry respects each YAML sprite type boundary. A flat string
+// match for an image name would accept an incorrect SurfaceSet declaration.
+func extraSpriteEntry(extra,kind string)string{
+  key:="  - type: "+kind+"\n"
+  pos:=strings.Index(extra,key)
+  if pos<0{return ""}
+  following:=extra[pos+len(key):]
+  if n:=strings.Index(following,"\n  - type:");n>=0{following=following[:n]}
+  return following
+}
 func Check(rules,config []byte,root string) Verdict {
   v:=Verdict{EvidenceClass:"SOURCE_DERIVED_NECESSARY_FIXTURE_CHECK_NOT_ENGINE",Missing:[]string{}}
   require:=func(ok bool,label string){if !ok{v.Missing=append(v.Missing,label)}}
@@ -187,8 +197,10 @@ func Check(rules,config []byte,root string) Verdict {
     {"InvCopyActive","inv-inv-copy-active.png",32,22},
     {"InvPaste","inv-inv-paste.png",32,22},
   }{
+    entry:=extraSpriteEntry(sprite,spec.kind)
     require(strings.Contains(sprite,"- type: "+spec.kind+"\n")&&
-      strings.Contains(sprite,"0: multiplayer/"+spec.file),"inventory-sprite:"+spec.kind)
+      strings.Contains(entry,"singleImage: true")&&
+      strings.Contains(entry,"0: multiplayer/"+spec.file),"inventory-sprite:"+spec.kind)
     p:=filepath.Join(root,"data","SYNTHETIC","multiplayer",spec.file)
     fh,err:=os.Open(p)
     valid:=false
