@@ -31,9 +31,9 @@ jobs:
           mkdir -p .out/evidence
           git init .out/fixtures
           git -C .out/fixtures remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
-          git -C .out/fixtures fetch --depth 1 origin a28019f1d3d6bc4129ce4673930308ee9d237eb6
+          git -C .out/fixtures fetch --depth 1 origin 0236489f4230bbc7919f9d48cbb48f87855bf761
           git -C .out/fixtures checkout --detach FETCH_HEAD
-          test "$(git -C .out/fixtures rev-parse HEAD)" = "a28019f1d3d6bc4129ce4673930308ee9d237eb6"
+          test "$(git -C .out/fixtures rev-parse HEAD)" = "0236489f4230bbc7919f9d48cbb48f87855bf761"
           node --check .out/fixtures/rdte/oxce-engine-synthetic/generate.mjs
           node .out/fixtures/rdte/oxce-engine-synthetic/generate.mjs .out/generated
           node .out/fixtures/rdte/oxce-engine-synthetic/generate-font.mjs .out/generated
