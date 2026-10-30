@@ -72,6 +72,11 @@ function originalSpriteSheet(w,h,cellW,cellH){
 put('multiplayer/globe-markers.png',originalSpriteSheet(27,3,3,3));
 put('multiplayer/touch-controls.png',originalSpriteSheet(320,24,32,24));
 put('multiplayer/tiny-ranks.png',originalSpriteSheet(42,7,7,7));
+put('multiplayer/oxce-links-inventory.png',originalSpriteSheet(23,22,23,22));
+for(const name of ['InvCopy','InvPasteEmpty','InvCopyActive','InvPaste']){
+  const id=name.replace(/([a-z])([A-Z])/g,'$1-$2').toLowerCase();
+  put('multiplayer/inv-'+id+'.png',originalSpriteSheet(32,22,32,22));
+}
 palettes();
 image('GEODATA/INTERWIN.DAT',160,600);
 put('GEODATA/SCANG.DAT',Buffer.alloc(4*4));
