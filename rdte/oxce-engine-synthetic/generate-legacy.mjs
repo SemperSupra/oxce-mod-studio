@@ -40,13 +40,13 @@ function blankPck(dir,name,frames=512) {
   put(dir+'/'+name+'.TAB',tab);
 }
 // Original 9-frame, 3x3 retro-futurist marker strip, encoded with Node stdlib.
-function markerPNG(){
+function originalSpriteSheet(w,h,cellW,cellH){
   // OXCE Surface::loadImage accepts indexed 8-bit PNG, NOT RGBA.
-  const w=27,h=3,scan=Buffer.alloc(h*(1+w));
+  const scan=Buffer.alloc(h*(1+w));
   for(let y=0;y<h;y++){
     for(let x=0;x<w;x++){
       const i=y*(1+w)+1+x;
-      scan[i]=(x%3===1||y===1)?1:0;
+      scan[i]=(x%cellW===Math.floor(cellW/2)||y%cellH===Math.floor(cellH/2))?1:0;
     }
   }
   function crc32(src){
@@ -69,7 +69,9 @@ function markerPNG(){
     chunk('IDAT',deflateSync(scan)),chunk('IEND',Buffer.alloc(0))
   ]);
 }
-put('multiplayer/globe-markers.png',markerPNG());
+put('multiplayer/globe-markers.png',originalSpriteSheet(27,3,3,3));
+put('multiplayer/touch-controls.png',originalSpriteSheet(320,24,32,24));
+put('multiplayer/tiny-ranks.png',originalSpriteSheet(42,7,7,7));
 palettes();
 image('GEODATA/INTERWIN.DAT',160,600);
 put('GEODATA/SCANG.DAT',Buffer.alloc(4*4));
@@ -79,7 +81,8 @@ blankPck('GEOGRAPH','INTICON',512);
 image('GEOGRAPH/TEXTURE.DAT',32,32);
 image('GEOGRAPH/GEOBORD.SCR',320,200);
 for(let i=0;i<20;i++)image('GEOGRAPH/BACK'+String(i).padStart(2,'0')+'.SCR',320,200);
-image('UFOGRAPH/SPICONS.DAT',32,24);
+// Two native 32x24 launch/psi frames; one frame dereferences a null getFrame(1).
+image('UFOGRAPH/SPICONS.DAT',32,24*2);
 blankPck('UFOGRAPH','CURSOR',512);
 blankPck('UFOGRAPH','SMOKE',512);
 blankPck('UFOGRAPH','HIT',512);
