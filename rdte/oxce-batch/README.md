@@ -1,0 +1,7 @@
+# Batched native OXCE menu RDTE — original-source public evaluator
+
+Reuses a **source-bound 2026-10-29 Linux technical-preview executable** from public run 40899658518 and its verified SHA256. Does not rebuild C++ for each scenario. Three Xvfb cases run with separate user/config state: native boot/main menu, real main-menu New Game click, real main-menu New Battle click. All native trace/screenshots/logs are persisted before verdict. Go stdlib classifier tests negative cases and explicitly refuses gameplay, accessibility and multiplayer acceptance.
+
+The game binary is GPL-3.0 derived from pinned public OXCE; preserve license notices. Source and assets are original-only; no original UFO/TFTD directories. Runner uses public standard Ubuntu, no private source, no secrets beyond read-only repository token, no network service. Input coordinates are derived from independently observed native MainMenuState button bounds at 2x scaling; if native resolution changes, the test must fail and be adapted from semantic bounds rather than silently click elsewhere.
+
+Batching: one verified binary -> 3 native launches on separate isolated user/configs -> 1 evidence manifest, 3 independently classified gates. The new-game and new-battle gates are expected to discover missing synthetic gameplay rules until a real original campaign is implemented. This is **not a release or playable-game acceptance**.
