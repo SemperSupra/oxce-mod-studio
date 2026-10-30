@@ -60,6 +60,11 @@ type receipt struct{
  ResumeLobbyMode int
  ClientRejoined bool
  ResumeCommandAccepted bool
+ NativeHoldReleaseAccepted bool
+ NativeHoldDialogCode int
+ NativeHoldDialogText string
+ LastHostStates []interface{}
+ LastClientStates []interface{}
  HostWorldObserved bool
  ClientWorldObserved bool
  ModeConsistent bool
@@ -125,10 +130,32 @@ func execute(hostPath,clientPath,saveFile,mode string)receipt{
  if !eligible{return fail("resume-lobby-not-ready")}
  if _,e=host.cmd("lobby_resume_campaign",nil);e!=nil{return fail("host-resume-command:"+e.Error())}
  r.ResumeCommandAccepted=true
+ // Source: LobbyMenu::resumeCampaign deliberately pushes COOP_DLG_WAIT_PLAYERS.
+ // The native wait dialog (not the lobby command itself) owns final RESUME.
+ // Do NOT interpret a loaded-but-paused geoscape as playable continuation.
+ releaseUntil:=time.Now().Add(17*time.Second)
+ for time.Now().Before(releaseUntil){
+  d,ed:=host.cmd("coop_dialog_info",nil)
+  if ed==nil{
+   code,_:=d["code"].(float64)
+   label,_:=d["backText"].(string)
+   r.NativeHoldDialogCode=int(code);r.NativeHoldDialogText=label
+   if d["present"]==true&&d["backVisible"]==true&&
+      (code==60||code==62)&&(label=="BEGIN"||label=="RESUME"){
+    if _,e=host.cmd("coop_dialog_back",nil);e!=nil{return fail("native-hold-release:"+e.Error())}
+    r.NativeHoldReleaseAccepted=true
+    break
+   }
+  }
+  time.Sleep(175*time.Millisecond)
+ }
+ if !r.NativeHoldReleaseAccepted{return fail(fmt.Sprintf("native-hold-not-releasable: code=%d label=%q",r.NativeHoldDialogCode,r.NativeHoldDialogText))}
  until=time.Now().Add(18*time.Second)
  for time.Now().Before(until){
   hs,eh:=host.cmd("get_state",nil);cs,ec:=client.cmd("get_state",nil)
   if eh==nil&&ec==nil{
+   if hstate,ok:=hs["states"].([]interface{});ok{r.LastHostStates=hstate}
+   if cstate,ok:=cs["states"].([]interface{});ok{r.LastClientStates=cstate}
    hostReady,clientReady:=false,false
    if hstates,ok:=hs["states"].([]interface{});ok {
     for _,s:=range hstates{
@@ -160,5 +187,5 @@ func main(){
  r:=execute(os.Args[1],os.Args[2],os.Args[3],os.Args[4])
  b,_:=json.MarshalIndent(r,"","  ");if err:=os.WriteFile(os.Args[5],append(b,'\n'),0644);err!=nil{panic(err)}
  fmt.Println(string(b))
- if r.FirstFailure!=""||!r.NewProcessHostsRespond||!r.NativeSaveLoaded||!r.HostIdentityPreserved||r.ResumeLobbyMode!=2||!r.ClientRejoined||!r.ResumeCommandAccepted||!r.HostWorldObserved||!r.ClientWorldObserved||!r.ModeConsistent||(r.Mode=="shared"&&!r.SharedWorldSubsetEqual){os.Exit(1)}
+ if r.FirstFailure!=""||!r.NewProcessHostsRespond||!r.NativeSaveLoaded||!r.HostIdentityPreserved||r.ResumeLobbyMode!=2||!r.ClientRejoined||!r.ResumeCommandAccepted||!r.NativeHoldReleaseAccepted||!r.HostWorldObserved||!r.ClientWorldObserved||!r.ModeConsistent||(r.Mode=="shared"&&!r.SharedWorldSubsetEqual){os.Exit(1)}
 }
