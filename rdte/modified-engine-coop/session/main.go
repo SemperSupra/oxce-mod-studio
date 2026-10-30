@@ -67,6 +67,14 @@ type Result struct{
  HostUiSaveArtifactName string
  ClientUiSaveIssued bool
  ClientUiSaveSuppressed bool
+ RejoinAttempted bool
+ RejoinHostSaveLoaded bool
+ RejoinHostLobbyMode int
+ RejoinHostStarted bool
+ RejoinClientJoined bool
+ RejoinClientWorldObserved bool
+ RejoinModeConsistent bool
+ RejoinFirstFailure string
  FirstFailure string
  Commands []string
 }
@@ -402,6 +410,61 @@ func main(){
    if prev,ok:=clientBefore[path];!ok||prev!=size{r.FirstFailure="client-changed-local-save: "+filepath.Base(path);return}
  }
  r.ClientUiSaveSuppressed=true
+ // Isolated reprise of a real saved co-op campaign, same persistent engine
+ // processes but with full transport and world state teardown. A later
+ // separately qualified lane must kill/restart the OS processes as well.
+ if os.Getenv("SF_COOP_REJOIN_PROBE")=="1" {
+   r.RejoinAttempted=true
+   fail:=func(msg string){r.RejoinFirstFailure=msg;r.FirstFailure=msg}
+   if _,ok:=cmd(client,map[string]interface{}{"cmd":"disconnect_to_menu"});!ok{fail("client-disconnect: "+r.FirstFailure);return}
+   if _,ok:=cmd(host,map[string]interface{}{"cmd":"disconnect_to_menu"});!ok{fail("host-disconnect: "+r.FirstFailure);return}
+   if _,err:=client.waitState("MainMenuState");err!=nil{fail("client-main-menu: "+err.Error());return}
+   if _,err:=host.waitState("MainMenuState");err!=nil{fail("host-main-menu: "+err.Error());return}
+   if r.HostUiSaveArtifactName==""{fail("no-authoritative-host-save-name");return}
+   if _,ok:=cmd(host,map[string]interface{}{"cmd":"load_save_menu","file":r.HostUiSaveArtifactName});!ok{fail("host-reload-save: "+r.FirstFailure);return}
+   if _,err:=host.waitState("GeoscapeState");err!=nil{fail("host-loaded-geoscape: "+err.Error());return}
+   markers,ok:=cmd(host,map[string]interface{}{"cmd":"save_markers"});if !ok{fail("host-loaded-markers: "+r.FirstFailure);return}
+   if markers["coop"]!=true{fail("loaded-world-no-coop-marker");return}
+   modeExpected:=float64(0);if mode=="shared"{modeExpected=1}
+   if markers["campaignType"]!=modeExpected{fail("loaded-world-wrong-mode");return}
+   r.RejoinHostSaveLoaded=true
+   listener,ok:=cmd(host,map[string]interface{}{"cmd":"host_tcp","server":"SignalFrontierResume","port":"0","player":"HostPlayer"});if !ok{fail("host-resume-listener: "+r.FirstFailure);return}
+   port,_:=listener["port"].(string);if port==""{fail("host-resume-port-absent");return}
+   if _,err:=host.waitState("LobbyMenu");err!=nil{fail("host-resume-lobby: "+err.Error());return}
+   lobby,ok:=cmd(host,map[string]interface{}{"cmd":"lobby_state"});if !ok{fail("host-resume-lobby-read: "+r.FirstFailure);return}
+   r.RejoinHostLobbyMode=int(lobby["lobbyMode"].(float64))
+   if r.RejoinHostLobbyMode!=2{fail(fmt.Sprintf("not-a-resume-lobby:%v",r.RejoinHostLobbyMode));return}
+   if _,ok:=cmd(client,map[string]interface{}{"cmd":"join_tcp","ip":"127.0.0.1","port":port,"player":"ClientPlayer"});!ok{fail("client-rejoin-tcp: "+r.FirstFailure);return}
+   r.RejoinClientJoined=true
+   if _,err:=client.waitState("Profile");err!=nil{fail("client-rejoin-profile: "+err.Error());return}
+   if _,ok:=cmd(client,map[string]interface{}{"cmd":"profile_ok"});!ok{fail("client-profile-resume: "+r.FirstFailure);return}
+   // Some native sessions also show host's Profile when a client joins.
+   if states,err:=host.states();err==nil&&includesState(states,"Profile"){
+      if _,ok:=cmd(host,map[string]interface{}{"cmd":"profile_ok"});!ok{fail("host-profile-resume: "+r.FirstFailure);return}
+   }
+   deadline:=time.Now().Add(9*time.Second)
+   eligible:=false
+   for time.Now().Before(deadline){
+      lb,err:=host.run(map[string]interface{}{"cmd":"lobby_state"})
+      if err==nil&&lb["startEligible"]==true{eligible=true;break}
+      time.Sleep(150*time.Millisecond)
+   }
+   if !eligible{fail("resume-lobby-ineligible");return}
+   if _,ok:=cmd(host,map[string]interface{}{"cmd":"lobby_resume_campaign"});!ok{fail("resume-campaign-refused: "+r.FirstFailure);return}
+   r.RejoinHostStarted=true
+   deadline=time.Now().Add(12*time.Second)
+   for time.Now().Before(deadline){
+      hg,he:=host.run(map[string]interface{}{"cmd":"geo_state"})
+      cg,ce:=client.run(map[string]interface{}{"cmd":"geo_state"})
+      if he==nil&&ce==nil {
+         _,r.RejoinModeConsistent=campaignMode(hg,cg)
+         r.RejoinClientWorldObserved=r.RejoinModeConsistent
+         if r.RejoinClientWorldObserved&&r.RejoinModeConsistent{break}
+      }
+      time.Sleep(200*time.Millisecond)
+   }
+   if !r.RejoinClientWorldObserved||!r.RejoinModeConsistent{fail("resumed-client-world-unverified");return}
+ }
  // Still no shared world checksum or tactical turn-by-turn equivalence.
  // Distinct single-player saves in a co-op lobby are not proof of sync.
  // A host base in a real save is NOT proof of synchronized campaign,
