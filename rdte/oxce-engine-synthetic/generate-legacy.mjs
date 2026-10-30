@@ -72,6 +72,8 @@ function originalSpriteSheet(w,h,cellW,cellH){
 put('multiplayer/globe-markers.png',originalSpriteSheet(27,3,3,3));
 put('multiplayer/touch-controls.png',originalSpriteSheet(320,24,32,24));
 put('multiplayer/tiny-ranks.png',originalSpriteSheet(42,7,7,7));
+// Pinned BattlescapeState::toggleKneelButton unconditionally indexes frames 0 and 1.
+put('multiplayer/kneel-button.png',originalSpriteSheet(64,16,32,16));
 // The independently authored armor must have spriteInv: it is an unguarded
 // getSurface(...) fallthrough during InventoryState::init for human units.
 put('multiplayer/survey-paperdoll.png',originalSpriteSheet(320,200,40,70));
