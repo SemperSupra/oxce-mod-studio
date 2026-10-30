@@ -90,11 +90,33 @@ jobs:
               .out/package "$scenario" ".out/evidence/$scenario" || true
           done
           ./.out-inspect .out/evidence .out/evidence/batch-receipt.json
-      - name: Symbolize first New Battle crash using the same verified engine binary
-        if: always()
+      - name: Exercise actual Inventory OK and check first tactical-state transition
         shell: bash
         run: |
-          timeout --kill-after=4s 35s xvfb-run -a bash rdte/oxce-batch/debug-new-battle.sh \
+          SF_INVENTORY_CONFIRM=1 timeout --kill-after=2s 18s xvfb-run -a bash rdte/oxce-batch/run-case.sh \
+            .out/package new-battle-briefing-continue .out/evidence/inventory-confirm || true
+          node <<'NODE'
+          const fs=require('fs');
+          const root='.out/evidence/inventory-confirm';
+          const path='.out/evidence/tactical-turn-entry-receipt.json';
+          const raw=fs.existsSync(root+'/trace.jsonl')?fs.readFileSync(root+'/trace.jsonl','utf8'):'';
+          const classes=raw.split(/\r?\n/).filter(Boolean).flatMap(s=>{try{return [JSON.parse(s).class||'']}catch{return []}});
+          const firstInv=classes.findIndex(x=>x.includes('InventoryState'));
+          const after=firstInv>=0?classes.slice(firstInv+1):[];
+          const tacticalAfter=after.some(x=>x.includes('BattlescapeState')||x.includes('NextTurnState'));
+          const last=classes.at(-1)||'';
+          const log=fs.existsSync(root+'/user/openxcom.log')?fs.readFileSync(root+'/user/openxcom.log','utf8'):'';
+          const fatals=log.split(/\r?\n/).filter(x=>x.includes('[FATAL]'));
+          const evidence={EvidenceClass:'ACTUAL_ENGINE_INVENTORY_OK_TO_FIRST_TACTICAL_SCREEN_NOT_TURN_GAMEPLAY',EngineExecuted:classes.length>0,InventoryObserved:firstInv>=0,PostInventoryTacticalObserved:tacticalAfter,FinalClass:last,FirstFatal:fatals[0]||'',Action:'inventory-confirm',GameplayQualified:false};
+          fs.writeFileSync(path,JSON.stringify(evidence,null,2)+'\n');
+          console.log(JSON.stringify(evidence));
+          if(!evidence.InventoryObserved||!evidence.PostInventoryTacticalObserved||last.includes('InventoryState')||fatals.length)process.exit(1);
+          NODE
+      - name: Symbolize first native tactical crash using the same verified engine binary
+        if: failure()
+        shell: bash
+        run: |
+          SF_DEBUG_INVENTORY_CONFIRM=1 timeout --kill-after=4s 35s xvfb-run -a bash rdte/oxce-batch/debug-new-battle.sh \
             .out/package .out/evidence/debug-new-battle || true
           test -s .out/evidence/debug-new-battle/gdb.log
           echo 'Original New Battle Confirm GDB frames (if reproduced):'
