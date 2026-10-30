@@ -232,6 +232,6 @@ jobs:
           if(!r.ClientUiSaveIssued||!r.ClientUiSaveSuppressed)process.exit(1);
           if(!r.RejoinAttempted||!r.RejoinHostSaveLoaded||r.RejoinHostLobbyMode!==2||!r.RejoinHostStarted||!r.RejoinClientJoined||!r.RejoinClientWorldObserved||!r.RejoinModeConsistent)process.exit(1);
           const fresh=JSON.parse(fs.readFileSync('.out/evidence/fresh-os-process-rejoin.json','utf8'));
-          if(fresh.FirstFailure||!fresh.NewProcessHostsRespond||!fresh.NativeSaveLoaded||!fresh.HostIdentityPreserved||fresh.ResumeLobbyMode!==2||!fresh.ClientRejoined||!fresh.ResumeCommandAccepted||!fresh.NativeHoldReleaseAccepted||!fresh.HostWorldObserved||!fresh.ClientWorldObserved||!fresh.ModeConsistent||(want==='SHARED'&&!fresh.SharedWorldSubsetEqual))process.exit(1);
+          if(fresh.FirstFailure||!fresh.NewProcessHostsRespond||!fresh.NativeSaveLoaded||!fresh.HostIdentityPreserved||fresh.ResumeLobbyMode!==2||!fresh.ClientRejoined||!fresh.ResumeCommandAccepted||!fresh.NativeHoldReleaseAccepted||!fresh.HostClockAdvancedAfterRestart||!fresh.ClientClockAdvancedAfterRestart||!fresh.ResumedClockEqual||!fresh.HostWorldObserved||!fresh.ClientWorldObserved||!fresh.ModeConsistent||(want==='SHARED'&&!fresh.SharedWorldSubsetEqual))process.exit(1);
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, '\n### Fresh OS-process restart: '+JSON.stringify(fresh)+'\n');
           NODE
