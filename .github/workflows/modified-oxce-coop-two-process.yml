@@ -178,7 +178,7 @@ jobs:
           node - <<'NODE'
           const fs=require('fs');
           const r=JSON.parse(fs.readFileSync('.out/evidence/session-progress.json','utf8'));
-          const keys=['CampaignMode','CampaignModeConsistent','ObservedSubsetEqual','WorldClockEqual','HostSavedBaseVisible','ClientSavedBaseVisible','HostStrategicReady','ClientStrategicReady','HostReleaseExecuted','ClientHoldReleased','HostTimeAdvanced','ClientTimeAdvanced','PostAdvanceClockEqual','RealMultiplayerQualified','FirstFailure'];
+          const keys=['CampaignMode','CampaignModeConsistent','ObservedSubsetEqual','WorldClockEqual','HostSavedBaseVisible','ClientSavedBaseVisible','HostStrategicReady','ClientStrategicReady','HostReleaseExecuted','ClientHoldReleased','HostTimeAdvanced','ClientTimeAdvanced','PostAdvanceClockEqual','HostThrowawaySaveLoad','ClientThrowawaySaveLoad','RealMultiplayerQualified','FirstFailure'];
           const lines=['### Actual co-op native read-only classification', ...keys.map(k => '- '+k+': '+JSON.stringify(r[k])),'This classification is not tactical or shared-world acceptance.'];
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n')+'\n');
           const want=process.env.SF_COOP_MODE==='shared'?'SHARED':'SEPARATE';
@@ -186,4 +186,5 @@ jobs:
           if(want==='SHARED' && (!r.ClientSeesHostBase||!r.HostWorldObserved||!r.ClientWorldObserved))process.exit(1);
           if(!r.HostReleaseExecuted||!r.ClientHoldReleased||!r.HostStrategicReady||!r.ClientStrategicReady)process.exit(1);
           if(!r.HostTimeAdvanced||!r.ClientTimeAdvanced||!r.PostAdvanceClockEqual)process.exit(1);
+          if(!r.HostThrowawaySaveLoad||!r.ClientThrowawaySaveLoad)process.exit(1);
           NODE
