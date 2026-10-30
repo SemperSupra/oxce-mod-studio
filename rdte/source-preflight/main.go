@@ -48,6 +48,17 @@ func inventoryRecord(section,id string) string {
 
 func matches(s,pattern string) bool {return regexp.MustCompile(pattern).MatchString(s)}
 
+// Source-indexed required interface elements for the pinned 8.6.5 build.
+// Keep the checking scope at a named interface; a duplicate id in geoscape
+// cannot satisfy a missing tactical HUD element.
+func interfaceRecord(interfaces,kind string)string {
+  anchor:="  - type: "+kind+"\n"
+  i:=strings.Index(interfaces,anchor)
+  if i<0{return ""}
+  body:=interfaces[i+len(anchor):]
+  if n:=strings.Index(body,"\n  - type:");n>=0{body=body[:n]}
+  return body
+}
 func Check(rules,config []byte,root string) Verdict {
   v:=Verdict{EvidenceClass:"SOURCE_DERIVED_NECESSARY_FIXTURE_CHECK_NOT_ENGINE",Missing:[]string{}}
   require:=func(ok bool,label string){if !ok{v.Missing=append(v.Missing,label)}}
@@ -77,6 +88,17 @@ func Check(rules,config []byte,root string) Verdict {
   }
   require(strings.Contains(interfaces,"id: icons")&&strings.Contains(interfaces,"size: [320, 56]"),"interfaces:battlescape-icons")
   require(strings.Contains(interfaces,"id: weight")&&strings.Contains(interfaces,"id: grid"),"interfaces:inventory-essentials")
+  // Every element accessed through pinned Battlescape/Inventory states
+  // must be present in its OWN named interface, not just anywhere in YAML.
+  for _,part:=range []struct{kind string;ids []string}{
+    {"battlescape",[]string{"barEnergy","barHealth","barMana","barMorale","barTUs","buttonAbort","buttonCenter","buttonEndTurn","buttonHelp","buttonInventory","buttonKneel","buttonLeftHand","buttonMapDown","buttonMapUp","buttonNextSoldier","buttonNextStop","buttonReserveAimed","buttonReserveAuto","buttonReserveKneel","buttonReserveNone","buttonReserveSnap","buttonRightHand","buttonShowLayers","buttonShowMap","buttonStats","buttonUnitDown","buttonUnitUp","buttonZeroTUs","icons","medikitBlue","medikitGreen","medikitOrange","medikitRed","messageWindowButtons","messageWindows","numAmmoLeft","numAmmoRight","numEnergy","numHealth","numLayers","numMedikitLeft","numMedikitRight","numMorale","numTUs","numTwoHandedIndicatorLeft","numTwoHandedIndicatorRight","passingOutUnits","pathfinding","rank","squadsightUnits","textName","textTooltip","twoHandedGreen","twoHandedRed","visibleUnits","warning","woundedUnits"}},
+    {"inventory",[]string{"buttonApply","buttonArmor","buttonCreate","buttonGround","buttonLinks","buttonNext","buttonOK","buttonPrev","buttonUnload","grid","rank","textAmmo","textItem","textName","textSlot","textSlots","textStatLine1","textStatLine2","textStatLine3","textStatLine4","textTUs","textWeight","weight"}},
+  }{
+    record:=interfaceRecord(interfaces,part.kind)
+    for _,id:=range part.ids{
+      require(strings.Contains(record,"      - id: "+id+"\n"),"interfaces:"+part.kind+":"+id)
+    }
+  }
   require(matches(globe,"(?m)^\\s+textures:\\s*$")&&matches(globe,"(?m)^\\s+- id:\\s+0\\s*$"),"globe:nonempty-textures")
   require(strings.Contains(globe,"  polygons:")&&strings.Contains(globe,"    - [0, -15, -15, 15, -15, 0, 15]"),"globe:original-land-triangle")
   require(strings.Contains(block(text,"facilities"),"lift: true")&&strings.Contains(block(text,"facilities"),"type: STR_SF_ACCESS_LIFT"),"facilities:original-access-lift")
