@@ -17,7 +17,7 @@ static void sfRdteBattle(const Game* game)
 {
  const char* target=std::getenv("OXCE_RDTE_BATTLE");
  if(!target || !*target || !game)return;
- const SavedGame* saved=game->getSavedGame();
+ SavedGame* saved=game->getSavedGame();
  if(!saved)return;
  SavedBattleGame* battle=saved->getSavedBattle();
  if(!battle)return;
