@@ -210,6 +210,20 @@ func Check(rules,config []byte,root string) Verdict {
     }
     require(valid,"inventory-original-indexed-art:"+spec.kind)
   }
+  // Armor::load reads spriteInv. InventoryState::init falls through to
+  // getSurface(look, true), which returns null for the default empty name
+  // (and then segfaults in blitNShade). Enforce a real single-image sprite.
+  doll:=extraSpriteEntry(sprite,"SF_SurveyPaperdoll")
+  require(strings.Contains(doll,"singleImage: true")&&
+    strings.Contains(doll,"0: multiplayer/survey-paperdoll.png"),
+    "inventory:paperdoll-single-surface")
+  dollFile,err:=os.Open(filepath.Join(root,"data","SYNTHETIC","multiplayer","survey-paperdoll.png"))
+  dollValid:=false
+  if err==nil {
+    i,e:=png.Decode(dollFile);dollFile.Close()
+    if e==nil {p,ok:=i.(*image.Paletted);dollValid=ok&&p.Bounds().Dx()==320&&p.Bounds().Dy()==200}
+  }
+  require(dollValid,"inventory:original-indexed-paperdoll")
   // Native controls revealed unresolved menu tokens and unreadable briefing text.
   // Check only the original en-US file; other languages require separate font HIL.
   locale,le:=os.ReadFile(filepath.Join(root,"user","mods","rdte-synthetic-master","Language","en-US.yml"))
@@ -248,6 +262,7 @@ func Check(rules,config []byte,root string) Verdict {
   armor:=block(text,"armors")
   require(matches(armor,"(?m)^\\s+corpseBattle:\\s*\\[STR_SF_SURVEY_SHELL\\]\\s*$"),"armors:one-corpse")
   require(matches(armor,"(?m)^\\s+loftempsSet:\\s*\\[3\\]\\s*$"),"armors:one-loft-template")
+  require(strings.Contains(armor,"spriteInv: SF_SurveyPaperdoll"),"armors:original-paperdoll-id")
   require(strings.Contains(block(text,"items"),"type: STR_SF_SURVEY_SHELL"),"items:survey-shell")
   for _,extension:=range []string{".PCK",".TAB"}{
     b,err:=os.ReadFile(filepath.Join(root,"data","SYNTHETIC","UNITS","SIGNALRELAY"+extension))
