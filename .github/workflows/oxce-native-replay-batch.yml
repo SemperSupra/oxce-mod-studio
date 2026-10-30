@@ -43,7 +43,8 @@ jobs:
           test -f .out/package/LICENSE-OXCE-GPL3.txt
           # Source-only game deliberately supplies no commercial intro cutscene.
           sed -i 's/^  playIntro: true$/  playIntro: false/' .out/package/config/options.cfg
-          grep -q '^  playIntro: false          test ! -e .out/package/data/UFO
+          grep -q '^  playIntro: false$' .out/package/config/options.cfg
+          test ! -e .out/package/data/UFO
           test ! -e .out/package/data/TFTD
           sha256sum .out/package/openxcom-sf-rdte > .out/evidence/engine-sha256.txt
       - name: Fetch pinned native-independent source-preflight artifact
