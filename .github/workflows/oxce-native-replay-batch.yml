@@ -172,12 +172,14 @@ jobs:
           const second=states.findIndex((s,i)=>i>battle&&s.includes('NextTurnState'));
           const post=states.slice(second+1);
           const next=post.find(s=>s.includes('BattlescapeState')||s.includes('DebriefingState'))||'';
+          const postBattleIdx=post.findIndex(s=>s.includes('BattlescapeState'));
+          const autoThird=postBattleIdx>=0&&post.slice(postBattleIdx+1).some(s=>s.includes('NextTurnState'));
           const log=fs.existsSync(root+'/user/openxcom.log')?fs.readFileSync(root+'/user/openxcom.log','utf8'):'';
           const fatal=log.split(/\r?\n/).find(x=>x.includes('[FATAL]'))||'';
-          const receipt={EvidenceClass:'ACTUAL_NATIVE_SECOND_TURN_DISMISSAL_TO_BATTLE_OR_DEBRIEF_NOT_AI_QUALIFIED',FirstInventory:inv>=0,FirstTurnOverlay:first>inv,FirstBattle:battle>first,SecondTurnOverlay:second>battle,AfterSecondTurn:next,FirstFatal:fatal,EnemyActionQualified:false,GameplayQualified:false};
+          const receipt={EvidenceClass:'ACTUAL_NATIVE_SECOND_TURN_DISMISSAL_TO_BATTLE_OR_DEBRIEF_NOT_AI_QUALIFIED',FirstInventory:inv>=0,FirstTurnOverlay:first>inv,FirstBattle:battle>first,SecondTurnOverlay:second>battle,AfterSecondTurn:next,AutomaticThirdNextTurn:autoThird,FirstFatal:fatal,EnemyActionQualified:false,GameplayQualified:false};
           fs.writeFileSync('.out/evidence/second-turn-continuation-receipt.json',JSON.stringify(receipt,null,2)+'\n');
           console.log(JSON.stringify(receipt));
-          if(!receipt.FirstInventory||!receipt.FirstTurnOverlay||!receipt.FirstBattle||!receipt.SecondTurnOverlay||!receipt.AfterSecondTurn||fatal)process.exit(1);
+          if(!receipt.FirstInventory||!receipt.FirstTurnOverlay||!receipt.FirstBattle||!receipt.SecondTurnOverlay||!receipt.AfterSecondTurn||!receipt.AutomaticThirdNextTurn||fatal)process.exit(1);
           NODE
       - name: Symbolize first native tactical crash using the same verified engine binary
         if: failure()
