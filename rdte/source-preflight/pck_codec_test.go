@@ -36,5 +36,5 @@ func TestOriginalIndexedPCKMustFailClosed(t *testing.T){
  broken:=append([]byte(nil),tab...)
  binary.LittleEndian.PutUint32(broken[:4],2)
  if _,err:=decodeIndexedPCKFixture(pck,broken,32,40);err==nil{t.Fatal("missing TAB zero origin accepted")}
- if _,err:=decodeIndexedPCKFixture([]byte{0,254,255,255},tab,32,40);err==nil{t.Fatal("overflowing transparent run accepted")}
+ if _,err:=decodeIndexedPCKFixture([]byte{0,254,255,254,255,254,255,254,255,254,255,254,255,255},tab,32,40);err==nil{t.Fatal("overflowing transparent run accepted")}
 }
