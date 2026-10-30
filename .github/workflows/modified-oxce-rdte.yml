@@ -36,6 +36,7 @@ jobs:
       - name: Fail-closed broker tests and patcher syntax
         run: |
           node --check rdte/modified-engine/patch-engine.mjs
+          node --check rdte/modified-engine/patch-battle-telemetry.mjs
           cd rdte/modified-engine/broker
           go test -race ./...
       - name: Fetch exactly pinned public GPL engine
@@ -54,7 +55,9 @@ jobs:
       - name: Apply opt-in control instrumentation
         run: |
           node rdte/modified-engine/patch-engine.mjs .out/oxce-public/src/Engine/Game.cpp | tee .out/modified-evidence/patch.txt
+          node rdte/modified-engine/patch-battle-telemetry.mjs .out/oxce-public/src/Engine/Game.cpp | tee .out/modified-evidence/tactical-patch.txt
           grep -q 'SF_RDTE_EVAL_BEGIN' .out/oxce-public/src/Engine/Game.cpp
+          grep -q 'SF_RDTE_TACTICAL_BEGIN' .out/oxce-public/src/Engine/Game.cpp
       - name: Compile modified actual OXCE engine
         shell: bash
         run: |
