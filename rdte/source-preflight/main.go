@@ -4,6 +4,8 @@ import (
   "bytes"
   "encoding/json"
   "fmt"
+  "image"
+  "image/png"
   "os"
   "path/filepath"
   "regexp"
@@ -103,6 +105,31 @@ func Check(rules,config []byte,root string) Verdict {
   require(strings.Contains(globe,"  polygons:")&&strings.Contains(globe,"    - [0, -15, -15, 15, -15, 0, 15]"),"globe:original-land-triangle")
   require(strings.Contains(block(text,"facilities"),"lift: true")&&strings.Contains(block(text,"facilities"),"type: STR_SF_ACCESS_LIFT"),"facilities:original-access-lift")
   require(strings.Contains(block(text,"facilities"),"fireSound: -1")&&strings.Contains(block(text,"facilities"),"hitSound: -1")&&strings.Contains(block(text,"facilities"),"placeSound: -1"),"facilities:no-retail-GEO-CAT-index")
+  // The authored FONT atlas must be mounted and uniformly use the visible
+  // foreground palette index. Alternating palette index 2 made half of the
+  // glyphs near-black in the actual native briefing screenshot.
+  fontPath:=filepath.Join(root,"user","mods","rdte-synthetic-master","Language","rdte-fonts.png")
+  fontHandle,fontErr:=os.Open(fontPath)
+  fontValid:=false
+  if fontErr==nil {
+    decoded,decodeErr:=png.Decode(fontHandle)
+    fontHandle.Close()
+    if decodeErr==nil {
+      paletted,ok:=decoded.(*image.Paletted)
+      if ok&&paletted.Bounds().Dx()==128&&paletted.Bounds().Dy()==72 {
+        visible:=0
+        dark:=0
+        for _,index:=range paletted.Pix {
+          if index==1{visible++}
+          if index==2{dark++}
+        }
+        fontValid=visible>0&&dark==0
+      }
+    }
+  }
+  require(fontValid,"font:original-128x72-visible-single-index")
+  fontYAML,fontYamlErr:=os.ReadFile(filepath.Join(root,"user","mods","rdte-synthetic-master","Language","rdte-fonts.yml"))
+  require(fontYamlErr==nil&&bytes.Contains(fontYAML,[]byte("FONT_SMALL"))&&bytes.Contains(fontYAML,[]byte("FONT_BIG")),"font:original-declared-atlas")
   // A native screenshot showed near-black index-1 glyphs on a deep-blue
   // checkerboard. Verify high-luminance 6-bit foreground in all palette banks.
   pal,pe:=os.ReadFile(filepath.Join(root,"data","SYNTHETIC","GEODATA","PALETTES.DAT"))
