@@ -65,6 +65,8 @@ type Result struct{
  HostUiSaveStatePopped bool
  HostUiSaveFileObserved bool
  HostUiSaveArtifactName string
+ ClientUiSaveIssued bool
+ ClientUiSaveSuppressed bool
  FirstFailure string
  Commands []string
 }
@@ -380,6 +382,26 @@ func main(){
  if !r.HostUiSaveFileObserved||!r.HostUiSaveStatePopped {
    r.FirstFailure="real-ui-save-funnel-no-new-host-file-or-pop";return
  }
+ // Negative authority test: the pinned SaveGameState::think suppresses
+ // co-op client-local writes. Initiate a real client UI quicksave, wait for
+ // state processing and verify the isolated client disk has no new save.
+ clientBefore:=snapshotSaveFiles(os.Args[2])
+ if _,ok:=cmd(client,map[string]interface{}{"cmd":"save_game_ui","type":"quick"});!ok{return}
+ r.ClientUiSaveIssued=true
+ time.Sleep(1100*time.Millisecond)
+ clientStates,clientStateErr:=client.states()
+ if clientStateErr!=nil{r.FirstFailure="client-save-ui-state-read: "+clientStateErr.Error();return}
+ if includesState(clientStates,"SaveGameState")||includesState(clientStates,"ErrorMessageState")||!includesState(clientStates,"GeoscapeState"){
+   r.FirstFailure=fmt.Sprintf("client-save-ui-stuck-or-error: %v",clientStates);return
+ }
+ clientAfter:=snapshotSaveFiles(os.Args[2])
+ if len(clientAfter)!=len(clientBefore){
+   r.FirstFailure="client-made-unauthorized-local-save";return
+ }
+ for path,size:=range clientAfter{
+   if prev,ok:=clientBefore[path];!ok||prev!=size{r.FirstFailure="client-changed-local-save: "+filepath.Base(path);return}
+ }
+ r.ClientUiSaveSuppressed=true
  // Still no shared world checksum or tactical turn-by-turn equivalence.
  // Distinct single-player saves in a co-op lobby are not proof of sync.
  // A host base in a real save is NOT proof of synchronized campaign,
