@@ -61,8 +61,25 @@ type Result struct{
  ClientSaveMarkers map[string]interface{}
  HostThrowawaySaveLoad bool
  ClientThrowawaySaveLoad bool
+ HostUiSaveIssued bool
+ HostUiSaveStatePopped bool
+ HostUiSaveFileObserved bool
+ HostUiSaveArtifactName string
  FirstFailure string
  Commands []string
+}
+// This only compares paths under a disposable public runner's isolated
+// user directory. The source calls SavedGame::save via MasterUserFolder.
+func snapshotSaveFiles(root string)map[string]int64 {
+  out:=map[string]int64{}
+  filepath.WalkDir(root,func(path string,d os.DirEntry,e error)error{
+    if e!=nil||d==nil||d.IsDir(){return nil}
+    if strings.HasSuffix(strings.ToLower(path),".sav")||strings.HasSuffix(strings.ToLower(path),".asav"){
+      if st,err:=d.Info();err==nil&&st.Size()>0{rel,_:=filepath.Rel(root,path);out[rel]=st.Size()}
+    }
+    return nil
+  })
+  return out
 }
 // Only the actual host campaign-wait dialog may be clicked. The client
 // WAIT buttons are intentionally hidden and clicking them can disconnect.
@@ -338,6 +355,30 @@ func main(){
    *pair.markers=m
    if _,ok:=cmd(pair.c,map[string]interface{}{"cmd":"reload_save_roundtrip"});!ok{return}
    *pair.round=true
+ }
+ // Source audited: SaveGameState::think executes the REAL host UI save
+ // funnel; unlike SavedGame::save direct roundtrip it honors co-op authority.
+ // Require one new nonempty host-side save, and that SaveGameState exits.
+ beforeSave:=snapshotSaveFiles(os.Args[1])
+ if _,ok:=cmd(host,map[string]interface{}{"cmd":"save_game_ui","type":"quick"});!ok{return}
+ r.HostUiSaveIssued=true
+ untilSave:=time.Now().Add(8*time.Second)
+ for time.Now().Before(untilSave){
+   states,err:=host.states()
+   if err!=nil {r.FirstFailure="host-ui-save-state: "+err.Error();return}
+   if !includesState(states,"SaveGameState") {
+     after:=snapshotSaveFiles(os.Args[1])
+     for path,size:=range after{
+       if prior,ok:=beforeSave[path];!ok||prior!=size {
+         r.HostUiSaveFileObserved=true;r.HostUiSaveArtifactName=filepath.Base(path);break
+       }
+     }
+     if r.HostUiSaveFileObserved{r.HostUiSaveStatePopped=true;break}
+   }
+   time.Sleep(200*time.Millisecond)
+ }
+ if !r.HostUiSaveFileObserved||!r.HostUiSaveStatePopped {
+   r.FirstFailure="real-ui-save-funnel-no-new-host-file-or-pop";return
  }
  // Still no shared world checksum or tactical turn-by-turn equivalence.
  // Distinct single-player saves in a co-op lobby are not proof of sync.
