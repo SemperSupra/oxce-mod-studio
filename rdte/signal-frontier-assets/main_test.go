@@ -33,8 +33,8 @@ func TestFormatContracts(t *testing.T){
  for _,b:=range pal{if b>=64{t.Fatal("not a six-bit channel")}}
  pck,_:=os.ReadFile(filepath.Join(d,"UNITS/SIGNALRELAY.PCK"))
  tab,_:=os.ReadFile(filepath.Join(d,"UNITS/SIGNALRELAY.TAB"))
- if len(tab)!=8||binary.LittleEndian.Uint32(tab[0:4])!=0||int(binary.LittleEndian.Uint32(tab[4:8]))!=w*h+2{t.Fatal("offsets")}
- if len(pck)!=2*(w*h+2)||pck[0]!=0||pck[w*h+1]!=255{t.Fatal("pck frame")}
+ if len(tab)!=4*battleSpriteFrames||binary.LittleEndian.Uint32(tab[0:4])!=0||int(binary.LittleEndian.Uint32(tab[4:8]))!=battleSpriteW*battleSpriteH+2{t.Fatal("offsets")}
+ if len(pck)!=battleSpriteFrames*(battleSpriteW*battleSpriteH+2)||pck[0]!=0||pck[battleSpriteW*battleSpriteH+1]!=255{t.Fatal("pck frame")}
  pngBytes,_:=os.ReadFile(filepath.Join(d,"Art/signal-relay.png"))
  im,err:=png.Decode(bytes.NewReader(pngBytes));if err!=nil{t.Fatal(err)}
  if im.Bounds().Dx()!=w||im.Bounds().Dy()!=h{t.Fatal("png bounds")}
