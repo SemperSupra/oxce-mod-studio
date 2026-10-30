@@ -41,6 +41,215 @@ jobs:
           tar -C .out/package -xzf .out/download/signal-frontier-modified-oxce-linux-x86_64-TECH-PREVIEW.tar.gz
           test -x .out/package/openxcom-sf-rdte
           test -f .out/package/LICENSE-OXCE-GPL3.txt
+          # Source-only game deliberately supplies no commercial intro cutscene.
+          sed -i 's/^  playIntro: true$/  playIntro: false/' .out/package/config/options.cfg
+          grep -q '^  playIntro: false
+          test ! -e .out/package/data/UFO
+          test ! -e .out/package/data/TFTD
+          sha256sum .out/package/openxcom-sf-rdte > .out/evidence/engine-sha256.txt
+      - name: Fetch pinned native-independent source-preflight artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: oxce-source-preflight-41008484728
+          run-id: 41008484728
+          github-token: ${{ github.token }}
+          path: .out/source-gate
+      - name: Require real negative-controlled source-preflight verdict
+        run: |
+          test -s .out/source-gate/preflight.json
+          node -e 'const fs=require("fs");const v=JSON.parse(fs.readFileSync(".out/source-gate/preflight.json","utf8")); if(v.EvidenceClass!=="SOURCE_DERIVED_NECESSARY_FIXTURE_CHECK_NOT_ENGINE"||v.EngineExecuted!==false||v.GameplayQualified!==false||!Array.isArray(v.Missing)||v.Missing.length!==0)process.exit(1)'
+      - name: Apply pinned original game-rule overlay without rebuilding the engine
+        run: |
+          git init .out/original-game-rules
+          git -C .out/original-game-rules remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
+          git -C .out/original-game-rules fetch --depth 1 origin 56449c22a6831551ded82b732d913bafa5b19cd9
+          git -C .out/original-game-rules checkout --detach FETCH_HEAD
+          test "$(git -C .out/original-game-rules rev-parse HEAD)" = "56449c22a6831551ded82b732d913bafa5b19cd9"
+          node .out/original-game-rules/rdte/oxce-engine-synthetic/generate.mjs .out/new-rules
+          node .out/original-game-rules/rdte/oxce-engine-synthetic/generate-font.mjs .out/new-rules
+          node --check .out/original-game-rules/rdte/oxce-engine-synthetic/generate-legacy.mjs
+          node .out/original-game-rules/rdte/oxce-engine-synthetic/generate-legacy.mjs .out/package/data/SYNTHETIC
+          test -s .out/package/data/SYNTHETIC/SOUND/gmgeo1.wav
+          mkdir -p .out/package/user/mods/rdte-synthetic-master/SoldierName
+          cp -a .out/new-rules/user/mods/rdte-synthetic-master/SoldierName/. .out/package/user/mods/rdte-synthetic-master/SoldierName/
+          cp .out/new-rules/user/mods/rdte-synthetic-master/Ruleset/10-synthetic.rul .out/package/user/mods/rdte-synthetic-master/Ruleset/
+          cp .out/new-rules/user/mods/rdte-synthetic-master/Language/en-US.yml .out/package/user/mods/rdte-synthetic-master/Language/
+          cp .out/new-rules/user/mods/rdte-synthetic-master/Language/rdte-fonts.* .out/package/user/mods/rdte-synthetic-master/Language/
+          sha256sum .out/package/user/mods/rdte-synthetic-master/Ruleset/10-synthetic.rul > .out/evidence/original-game-rules.sha256
+          sha256sum .out/package/user/mods/rdte-synthetic-master/Language/rdte-fonts.* > .out/evidence/original-fonts.sha256
+          sha256sum .out/package/data/SYNTHETIC/SOUND/*.wav .out/package/user/mods/rdte-synthetic-master/SoldierName/*.nam > .out/evidence/original-media-name-ledger.sha256
+      - name: Overlay source-qualified independent 32x40 tactical sprite atlas
+        shell: bash
+        run: |
+          git init .out/original-tactical-art
+          git -C .out/original-tactical-art remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
+          git -C .out/original-tactical-art fetch --depth 1 origin a642615e3f32b909507cf66b0c78ba8e72d31bcb
+          git -C .out/original-tactical-art checkout --detach FETCH_HEAD
+          test "$(git -C .out/original-tactical-art rev-parse HEAD)" = "a642615e3f32b909507cf66b0c78ba8e72d31bcb"
+          (cd .out/original-tactical-art/rdte/signal-frontier-assets && GO111MODULE=off go test ./... && GO111MODULE=off go run . "$GITHUB_WORKSPACE/.out/asset-atlas")
+          test "$(stat -c %s .out/asset-atlas/UNITS/SIGNALRELAY.TAB)" = "2048"
+          test -s .out/asset-atlas/UNITS/SIGNALRELAY.PCK
+          cp .out/asset-atlas/UNITS/SIGNALRELAY.PCK .out/package/data/SYNTHETIC/UNITS/
+          cp .out/asset-atlas/UNITS/SIGNALRELAY.TAB .out/package/data/SYNTHETIC/UNITS/
+          test "$(stat -c %s .out/asset-atlas/TERRAIN/BLANKS.MCD)" = "124"
+          test "$(stat -c %s .out/asset-atlas/TERRAIN/BLANKS.TAB)" = "8"
+          cp .out/asset-atlas/TERRAIN/BLANKS.PCK .out/package/data/SYNTHETIC/TERRAIN/
+          cp .out/asset-atlas/TERRAIN/BLANKS.TAB .out/package/data/SYNTHETIC/TERRAIN/
+          cp .out/asset-atlas/TERRAIN/BLANKS.MCD .out/package/data/SYNTHETIC/TERRAIN/
+          sha256sum .out/package/data/SYNTHETIC/UNITS/SIGNALRELAY.PCK .out/package/data/SYNTHETIC/UNITS/SIGNALRELAY.TAB .out/package/data/SYNTHETIC/TERRAIN/BLANKS.* > .out/evidence/original-32x40-tactical-art.sha256
+          printf '%s\n' 'ORIGINAL_ART_SOURCE_ONLY_NO_RETAIL_MEDIA_RENDER_QUALITY_NOT_ACCEPTED' > .out/evidence/original-art-provenance.txt
+      - name: Install runtime dependencies (no C++ compilation)
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            libsdl1.2debian libsdl-image1.2 libsdl-gfx1.2-5 libsdl-mixer1.2 \
+            libyaml-cpp0.7 libboost-system1.74.0 xvfb xauth imagemagick gdb
+      - name: Execute six independent game-window scenarios using one binary
+        shell: bash
+        run: |
+          for scenario in boot new-game new-battle new-battle-confirm new-battle-briefing-continue new-game-confirm; do
+            echo "Scenario $scenario"
+            timeout --kill-after=2s 16s xvfb-run -a bash rdte/oxce-batch/run-case.sh \
+              .out/package "$scenario" ".out/evidence/$scenario" || true
+          done
+          ./.out-inspect .out/evidence .out/evidence/batch-receipt.json
+      - name: Exercise actual Inventory OK and check first tactical-state transition
+        shell: bash
+        run: |
+          SF_INVENTORY_CONFIRM=1 timeout --kill-after=2s 18s xvfb-run -a bash rdte/oxce-batch/run-case.sh \
+            .out/package new-battle-briefing-continue .out/evidence/inventory-confirm || true
+          node <<'NODE'
+          const fs=require('fs');
+          const root='.out/evidence/inventory-confirm';
+          const path='.out/evidence/tactical-turn-entry-receipt.json';
+          const raw=fs.existsSync(root+'/trace.jsonl')?fs.readFileSync(root+'/trace.jsonl','utf8'):'';
+          const classes=raw.split(/\r?\n/).filter(Boolean).flatMap(s=>{try{return [JSON.parse(s).class||'']}catch{return []}});
+          const firstInv=classes.findIndex(x=>x.includes('InventoryState'));
+          const after=firstInv>=0?classes.slice(firstInv+1):[];
+          const tacticalAfter=after.some(x=>x.includes('BattlescapeState')||x.includes('NextTurnState'));
+          const last=classes.at(-1)||'';
+          const log=fs.existsSync(root+'/user/openxcom.log')?fs.readFileSync(root+'/user/openxcom.log','utf8'):'';
+          const fatals=log.split(/\r?\n/).filter(x=>x.includes('[FATAL]'));
+          const evidence={EvidenceClass:'ACTUAL_ENGINE_INVENTORY_OK_TO_FIRST_TACTICAL_SCREEN_NOT_TURN_GAMEPLAY',EngineExecuted:classes.length>0,InventoryObserved:firstInv>=0,PostInventoryTacticalObserved:tacticalAfter,FinalClass:last,FirstFatal:fatals[0]||'',Action:'inventory-confirm',GameplayQualified:false};
+          fs.writeFileSync(path,JSON.stringify(evidence,null,2)+'\n');
+          console.log(JSON.stringify(evidence));
+          if(!evidence.InventoryObserved||!evidence.PostInventoryTacticalObserved||last.includes('InventoryState')||fatals.length)process.exit(1);
+          NODE
+      - name: Exercise actual Next Turn overlay and require live Battlescape return
+        shell: bash
+        run: |
+          SF_INVENTORY_CONFIRM=1 SF_NEXT_TURN_CONTINUE=1 timeout --kill-after=2s 20s xvfb-run -a bash rdte/oxce-batch/run-case.sh \
+            .out/package new-battle-briefing-continue .out/evidence/next-turn-confirm || true
+          node <<'NODE'
+          const fs=require('fs');
+          const root='.out/evidence/next-turn-confirm';
+          const raw=fs.existsSync(root+'/trace.jsonl')?fs.readFileSync(root+'/trace.jsonl','utf8'):'';
+          const classes=raw.split(/\r?\n/).filter(Boolean).flatMap(s=>{try{return [JSON.parse(s).class||'']}catch{return []}});
+          const inv=classes.findIndex(x=>x.includes('InventoryState'));
+          const turn=classes.findIndex((x,i)=>i>inv&&x.includes('NextTurnState'));
+          const later=turn>=0?classes.slice(turn+1):[];
+          const returnToBattle=later.some(x=>x.includes('BattlescapeState'));
+          const finalClass=classes.at(-1)||'';
+          const log=fs.existsSync(root+'/user/openxcom.log')?fs.readFileSync(root+'/user/openxcom.log','utf8'):'';
+          const firstFatal=log.split(/\r?\n/).find(x=>x.includes('[FATAL]'))||'';
+          const receipt={EvidenceClass:'ACTUAL_ENGINE_FIRST_TURN_OVERLAY_DISMISSAL_NOT_PLAYER_OR_ENEMY_ACTION',InventoryObserved:inv>=0,FirstTurnOverlayObserved:turn>inv,ReturnedToBattlescape:returnToBattle,FinalClass:finalClass,FirstFatal:firstFatal,GameplayQualified:false};
+          fs.writeFileSync('.out/evidence/first-turn-overlay-receipt.json',JSON.stringify(receipt,null,2)+'\n');
+          console.log(JSON.stringify(receipt));
+          if(!receipt.InventoryObserved||!receipt.FirstTurnOverlayObserved||!returnToBattle||firstFatal)process.exit(1);
+          NODE
+      - name: Keyboard-only NextTurn confirmation smoke (bounded accessibility evidence)
+        shell: bash
+        run: |
+          SF_INVENTORY_CONFIRM=1 SF_NEXT_TURN_CONTINUE=1 SF_NEXT_TURN_KEYBOARD=1 timeout --kill-after=2s 20s xvfb-run -a bash rdte/oxce-batch/run-case.sh \
+            .out/package new-battle-briefing-continue .out/evidence/keyboard-next-turn || true
+          node <<'NODE'
+          const fs=require('fs');const root='.out/evidence/keyboard-next-turn';
+          const commands=fs.existsSync(root+'/commands.txt')?fs.readFileSync(root+'/commands.txt','utf8'):'';
+          const raw=fs.existsSync(root+'/trace.jsonl')?fs.readFileSync(root+'/trace.jsonl','utf8'):'';
+          const classes=raw.split(/\r?\n/).filter(Boolean).flatMap(s=>{try{return [JSON.parse(s).class||'']}catch{return []}});
+          const turn=classes.findIndex(x=>x.includes('NextTurnState'));
+          const returned=turn>=0&&classes.slice(turn+1).some(x=>x.includes('BattlescapeState'));
+          const log=fs.existsSync(root+'/user/openxcom.log')?fs.readFileSync(root+'/user/openxcom.log','utf8'):'';
+          const firstFatal=log.split(/\r?\n/).find(x=>x.includes('[FATAL]'))||'';
+          const receipt={EvidenceClass:'REAL_NATIVE_KEYBOARD_KEY13_NEXTTURN_SCREEN_DISMISSAL_ONLY',KeyboardKey13Sent:commands.includes('KEY 13'),TurnScreenObserved:turn>=0,ReturnedToBattlescape:returned,FirstFatal:firstFatal,AssistiveTechnologyQualified:false};
+          fs.writeFileSync('.out/evidence/keyboard-next-turn-receipt.json',JSON.stringify(receipt,null,2)+'\n');
+          console.log(JSON.stringify(receipt));
+          if(!receipt.KeyboardKey13Sent||!receipt.TurnScreenObserved||!receipt.ReturnedToBattlescape||firstFatal)process.exit(1);
+          NODE
+      - name: Exercise genuine Battlescape End Turn button and inspect faction transition
+        shell: bash
+        run: |
+          SF_INVENTORY_CONFIRM=1 SF_NEXT_TURN_CONTINUE=1 SF_BATTLE_END_TURN=1 timeout --kill-after=2s 30s xvfb-run -a bash rdte/oxce-batch/run-case.sh \
+            .out/package new-battle-briefing-continue .out/evidence/end-turn-button || true
+          node <<'NODE'
+          const fs=require('fs');
+          const root='.out/evidence/end-turn-button';
+          const raw=fs.existsSync(root+'/trace.jsonl')?fs.readFileSync(root+'/trace.jsonl','utf8'):'';
+          const states=raw.split(/\r?\n/).filter(Boolean).flatMap(s=>{try{return [JSON.parse(s).class||'']}catch{return []}});
+          const inv=states.findIndex(s=>s.includes('InventoryState'));
+          const firstTurn=states.findIndex((s,i)=>i>inv&&s.includes('NextTurnState'));
+          const battle=states.findIndex((s,i)=>i>firstTurn&&s.includes('BattlescapeState'));
+          const secondTurn=states.findIndex((s,i)=>i>battle&&s.includes('NextTurnState'));
+          const last=states.at(-1)||'';
+          const log=fs.existsSync(root+'/user/openxcom.log')?fs.readFileSync(root+'/user/openxcom.log','utf8'):'';
+          const fatal=log.split(/\r?\n/).find(x=>x.includes('[FATAL]'))||'';
+          const receipt={EvidenceClass:'ACTUAL_NATIVE_END_TURN_BUTTON_AND_SUBSEQUENT_STATE_NOT_ENEMY_AI_GAMEPLAY',InventoryObserved:inv>=0,FirstNextTurn: firstTurn>inv,ActiveBattlescape: battle>firstTurn,SecondNextTurn:secondTurn>battle,FinalClass:last,FirstFatal:fatal,GameplayQualified:false};
+          fs.writeFileSync('.out/evidence/end-turn-button-receipt.json',JSON.stringify(receipt,null,2)+'\n');
+          console.log(JSON.stringify(receipt));
+          if(!receipt.InventoryObserved||!receipt.FirstNextTurn||!receipt.ActiveBattlescape||!receipt.SecondNextTurn||fatal)process.exit(1);
+          NODE
+      - name: Exercise second turn overlay dismissal and observe native continuation
+        shell: bash
+        run: |
+          SF_INVENTORY_CONFIRM=1 SF_NEXT_TURN_CONTINUE=1 SF_BATTLE_END_TURN=1 SF_SECOND_NEXT_TURN_CONTINUE=1 timeout --kill-after=2s 35s xvfb-run -a bash rdte/oxce-batch/run-case.sh \
+            .out/package new-battle-briefing-continue .out/evidence/second-turn-confirm || true
+          node <<'NODE'
+          const fs=require('fs');
+          const root='.out/evidence/second-turn-confirm';
+          const raw=fs.existsSync(root+'/trace.jsonl')?fs.readFileSync(root+'/trace.jsonl','utf8'):'';
+          const states=raw.split(/\r?\n/).filter(Boolean).flatMap(s=>{try{return [JSON.parse(s).class||'']}catch{return []}});
+          const inv=states.findIndex(s=>s.includes('InventoryState'));
+          const first=states.findIndex((s,i)=>i>inv&&s.includes('NextTurnState'));
+          const battle=states.findIndex((s,i)=>i>first&&s.includes('BattlescapeState'));
+          const second=states.findIndex((s,i)=>i>battle&&s.includes('NextTurnState'));
+          const post=states.slice(second+1);
+          const next=post.find(s=>s.includes('BattlescapeState')||s.includes('DebriefingState'))||'';
+          const postBattleIdx=post.findIndex(s=>s.includes('BattlescapeState'));
+          const autoThird=postBattleIdx>=0&&post.slice(postBattleIdx+1).some(s=>s.includes('NextTurnState'));
+          const log=fs.existsSync(root+'/user/openxcom.log')?fs.readFileSync(root+'/user/openxcom.log','utf8'):'';
+          const fatal=log.split(/\r?\n/).find(x=>x.includes('[FATAL]'))||'';
+          const receipt={EvidenceClass:'ACTUAL_NATIVE_SECOND_TURN_DISMISSAL_TO_BATTLE_OR_DEBRIEF_NOT_AI_QUALIFIED',FirstInventory:inv>=0,FirstTurnOverlay:first>inv,FirstBattle:battle>first,SecondTurnOverlay:second>battle,AfterSecondTurn:next,AutomaticThirdNextTurn:autoThird,FirstFatal:fatal,EnemyActionQualified:false,GameplayQualified:false};
+          fs.writeFileSync('.out/evidence/second-turn-continuation-receipt.json',JSON.stringify(receipt,null,2)+'\n');
+          console.log(JSON.stringify(receipt));
+          if(!receipt.FirstInventory||!receipt.FirstTurnOverlay||!receipt.FirstBattle||!receipt.SecondTurnOverlay||!receipt.AfterSecondTurn||!receipt.AutomaticThirdNextTurn||fatal)process.exit(1);
+          NODE
+      - name: Qualify read-only per-unit enemy action from actual modified engine
+        shell: bash
+        run: |
+          ./.out-inspect --tactical .out/evidence/second-turn-confirm/battle.jsonl .out/evidence/tactical-unit-delta-receipt.json
+          node -e 'const x=require("./.out/evidence/tactical-unit-delta-receipt.json");if(x.GameplayQualified||!x.PlayerObserved||!x.EnemyObserved||!x.HostileFactionTurnObserved||!x.EnemyActionObserved||x.FirstFailure)process.exit(1)'
+      - name: Symbolize first native tactical crash using the same verified engine binary
+        if: failure()
+        shell: bash
+        run: |
+          SF_DEBUG_INVENTORY_CONFIRM=1 timeout --kill-after=4s 35s xvfb-run -a bash rdte/oxce-batch/debug-new-battle.sh \
+            .out/package .out/evidence/debug-new-battle || true
+          test -s .out/evidence/debug-new-battle/gdb.log
+          echo 'Original New Battle Confirm GDB frames (if reproduced):'
+          if test -s .out/evidence/debug-new-battle/stack-summary.txt; then
+            cat .out/evidence/debug-new-battle/stack-summary.txt
+          else
+            echo 'NO_SIGSEGV_STACK_CAPTURED; diagnostic remains open'
+          fi
+      - name: Upload original native receipts even on failed scenario
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oxce-native-batch-${{ github.run_id }}
+          path: .out/evidence/
+          retention-days: 7
+          if-no-files-found: warn
+ .out/package/config/options.cfg
           test ! -e .out/package/data/UFO
           test ! -e .out/package/data/TFTD
           sha256sum .out/package/openxcom-sf-rdte > .out/evidence/engine-sha256.txt
