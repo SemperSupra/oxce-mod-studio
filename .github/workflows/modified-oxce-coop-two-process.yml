@@ -1,0 +1,237 @@
+name: Two real modified OXCE Co-op processes (synthetic master)
+concurrency:
+  group: sf-coop-scenarios-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/modified-oxce-coop-two-process.yml"
+      - "rdte/modified-engine-coop/probe/**"
+      - "rdte/modified-engine-coop/session/**"
+      - "rdte/modified-engine-coop/restart/**"
+permissions:
+  contents: read
+  actions: read
+jobs:
+  dual-engine-smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [separate, shared]
+    runs-on: ubuntu-22.04
+    env:
+      SF_COOP_MODE: ${{ matrix.mode }}
+      SF_COOP_REJOIN_PROBE: '1'
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Check campaign-mode classifier negatives before native processes
+        run: GO111MODULE=off go test ./rdte/modified-engine-coop/session ./rdte/modified-engine-coop/restart
+      - name: Read verified original-game preflight result
+        uses: actions/download-artifact@v4
+        with:
+          name: oxce-source-preflight-41008484728
+          run-id: 41008484728
+          github-token: ${{ github.token }}
+          path: .out/necessary-source-gate
+      - name: Fail closed before native co-op if fixture prerequisites failed
+        run: |
+          test -s .out/necessary-source-gate/preflight.json
+          node -e 'const x=require("./.out/necessary-source-gate/preflight.json");if(x.EvidenceClass!=="SOURCE_DERIVED_NECESSARY_FIXTURE_CHECK_NOT_ENGINE"||x.EngineExecuted!==false||x.GameplayQualified!==false||!Array.isArray(x.Missing)||x.Missing.length)process.exit(1)'
+      - name: Fetch immutable prior source-verified co-op build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: modified-oxce-coop-build-40894894174
+          run-id: 40894894174
+          github-token: ${{ github.token }}
+          path: .out/download
+      - name: Verify prior native co-op executable archive checksum
+        run: |
+          mkdir -p .out/evidence .out/bin
+          echo '35e56b500e0ae6820e521ba1e1f93ea4025c9875079ac07ed2ff926a6dba367a  .out/download/modified-oxce-coop-linux-x86_64-BUILD-QUAL.tar.gz' | sha256sum -c
+          tar -C .out/bin -xzf .out/download/modified-oxce-coop-linux-x86_64-BUILD-QUAL.tar.gz
+          test -x .out/bin/openxcom-coop-sf-rdte
+      - name: Acquire public original synthetic assets (no commercial game files)
+        run: |
+          git init .out/public-fixtures
+          git -C .out/public-fixtures remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
+          git -C .out/public-fixtures fetch --depth 1 origin 56449c22a6831551ded82b732d913bafa5b19cd9
+          git -C .out/public-fixtures checkout --detach FETCH_HEAD
+          git init .out/public-coop-source
+          git -C .out/public-coop-source remote add origin https://github.com/OpenXcom-Coop/OpenXcom-Coop-Mod.git
+          git -C .out/public-coop-source fetch --depth 1 origin 33f5c251d29b257130cfbb7634735d2e9c946299
+          git -C .out/public-coop-source checkout --detach FETCH_HEAD
+          node .out/public-fixtures/rdte/oxce-engine-synthetic/generate.mjs .out/synthetic
+          node .out/public-fixtures/rdte/oxce-engine-synthetic/generate-font.mjs .out/synthetic
+          node .out/public-fixtures/rdte/oxce-engine-synthetic/generate-legacy.mjs .out/synthetic/data/SYNTHETIC
+          # Original GPL-compatible Signal Frontier art source; never import retail assets.
+          git init .out/public-original-art
+          git -C .out/public-original-art remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
+          git -C .out/public-original-art fetch --depth 1 origin 42be17ae50f9c323592e187572f57e1701e0f442
+          git -C .out/public-original-art checkout --detach FETCH_HEAD
+          (cd .out/public-original-art/rdte/signal-frontier-assets && go test ./... && go run . "$GITHUB_WORKSPACE/.out/original-art")
+          mkdir -p .out/synthetic/data/SYNTHETIC/multiplayer
+          cp .out/original-art/Art/signal-relay.png .out/synthetic/data/SYNTHETIC/multiplayer/base.png
+          cp .out/original-art/Art/signal-relay.png .out/synthetic/data/SYNTHETIC/multiplayer/avatar.png
+          sha256sum .out/synthetic/data/SYNTHETIC/multiplayer/*.png > .out/evidence/original-multiplayer-art.sha256
+          sed -i 's/requiredExtendedVersion: "8.6"/requiredExtendedVersion: "8.4"/' .out/synthetic/user/mods/rdte-synthetic-master/metadata.yml
+          sed -i '/^  mute: true$/a\  playIntro: false' .out/synthetic/config/options.cfg
+          grep -q 'playIntro: false' .out/synthetic/config/options.cfg
+          cp -a .out/public-coop-source/bin/common .out/synthetic/data/common
+          cp -a .out/public-coop-source/bin/standard .out/synthetic/data/standard
+          test ! -e .out/synthetic/data/UFO
+          test ! -e .out/synthetic/data/TFTD
+          cp -a .out/synthetic/user .out/host-user
+          cp -a .out/synthetic/user .out/client-user
+          cp -a .out/synthetic/config .out/host-config
+          cp -a .out/synthetic/config .out/client-config
+          sha256sum .out/synthetic/user/mods/rdte-synthetic-master/metadata.yml > .out/evidence/synthetic.sha256
+      - name: Install runtime SDL/JSON/net/vorbis and Xvfb only
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            libsdl1.2debian libsdl-image1.2 libsdl-gfx1.2-5 libsdl-mixer1.2 libsdl-net1.2 \
+            libsodium23 libjsoncpp25 libvorbisfile3 xvfb xauth x11-utils
+      - name: Batch build both tiny original Go probes once before launching the C++ binaries
+        run: |
+          mkdir -p .out/probe
+          go build -o .out/probe/health rdte/modified-engine-coop/probe/main.go
+          go build -o .out/probe/session rdte/modified-engine-coop/session/main.go
+          go build -o .out/probe/fresh-restart rdte/modified-engine-coop/restart/main.go
+      - name: Start two isolated modified OXCE processes on loopback
+        shell: bash
+        run: |
+          set +e
+          DATA="$PWD/.out/synthetic/data"
+          BIN="$PWD/.out/bin/openxcom-coop-sf-rdte"
+          # A single display with readiness gating prevents xvfb-run -a double-start races.
+          # The runner and isolated X11 socket are short-lived, with TCP disabled.
+          DISPLAY_ID=":$((90 + GITHUB_RUN_ATTEMPT))"
+          Xvfb "$DISPLAY_ID" -screen 0 1280x800x24 -nolisten tcp \
+            > .out/evidence/xvfb.log 2>&1 &
+          XVFB=$!
+          trap 'kill "$XVFB" 2>/dev/null || true' EXIT
+          DISPLAY_SOCKET="/tmp/.X11-unix/X${DISPLAY_ID#:}"
+          READY=0
+          for i in $(seq 1 50); do
+            if test -S "$DISPLAY_SOCKET" && xdpyinfo -display "$DISPLAY_ID" >/dev/null 2>&1 && kill -0 "$XVFB" 2>/dev/null; then
+              READY=1
+              break
+            fi
+            sleep 0.2
+          done
+          if [ "$READY" != 1 ]; then
+            echo "xvfb_start=FAILED" >> .out/evidence/exit.txt
+            exit 0
+          fi
+          export DISPLAY="$DISPLAY_ID"
+          OXC_TEST_PORT=0 SDL_AUDIODRIVER=dummy timeout 100s "$BIN" \
+            -data "$DATA" -user "$PWD/.out/host-user" -config "$PWD/.out/host-config" \
+            > .out/evidence/host-stdout.log 2>&1 &
+          HOST=$!
+          # Require a rendered host frame before starting the second SDL client.
+          sleep 1
+          OXC_TEST_PORT=0 SDL_AUDIODRIVER=dummy timeout 100s "$BIN" \
+            -data "$DATA" -user "$PWD/.out/client-user" -config "$PWD/.out/client-config" \
+            > .out/evidence/client-stdout.log 2>&1 &
+          CLIENT=$!
+          sleep 3
+          .out/probe/health .out/host-user .out/client-user .out/evidence/two-process.json > .out/evidence/probe-stdout.log 2>&1
+          echo "probe_exit=$?" >> .out/evidence/exit.txt
+          # Batch: reuse these same two real binaries and user profiles for the next dependent gate.
+          .out/probe/session .out/host-user .out/client-user .out/evidence/session-progress.json > .out/evidence/session-stdout.log 2>&1
+          echo "session_probe_exit=$?" >> .out/evidence/exit.txt
+          # Preserve actual per-instance host native logs prior to disposal.
+          cp .out/host-user/openxcom.log .out/evidence/host-engine-first.log || true
+          cp .out/client-user/openxcom.log .out/evidence/client-engine-first.log || true
+          echo "original_host_wrapper_pid=$HOST original_client_wrapper_pid=$CLIENT" > .out/evidence/fresh-process-custody.txt
+          # Strict process boundary: stop BOTH original OS-process wrappers and wait.
+          kill -TERM "$HOST" "$CLIENT" 2>/dev/null || true
+          wait "$HOST" 2>/dev/null || true
+          wait "$CLIENT" 2>/dev/null || true
+          if kill -0 "$HOST" 2>/dev/null || kill -0 "$CLIENT" 2>/dev/null; then
+            echo "old-process-remains-running" >> .out/evidence/fresh-process-custody.txt
+            exit 0
+          fi
+          if ! test -s .out/host-user/rdte-synthetic-master/_quick_.asav; then
+            echo "no-host-owned-native-save" >> .out/evidence/fresh-process-custody.txt
+            exit 0
+          fi
+          sha256sum .out/host-user/rdte-synthetic-master/_quick_.asav > .out/evidence/fresh-restart-authoritative-save.sha256
+          # Require new testserver discovery. Never accidentally connect to the prior
+          # process or its stale testserver_port.txt.
+          rm -f .out/host-user/testserver_port.txt .out/client-user/testserver_port.txt
+          OXC_TEST_PORT=0 SDL_AUDIODRIVER=dummy timeout 85s "$BIN" \
+            -data "$DATA" -user "$PWD/.out/host-user" -config "$PWD/.out/host-config" \
+            > .out/evidence/host-fresh-stdout.log 2>&1 &
+          FRESH_HOST=$!
+          sleep 1
+          OXC_TEST_PORT=0 SDL_AUDIODRIVER=dummy timeout 85s "$BIN" \
+            -data "$DATA" -user "$PWD/.out/client-user" -config "$PWD/.out/client-config" \
+            > .out/evidence/client-fresh-stdout.log 2>&1 &
+          FRESH_CLIENT=$!
+          echo "new_host_wrapper_pid=$FRESH_HOST new_client_wrapper_pid=$FRESH_CLIENT" >> .out/evidence/fresh-process-custody.txt
+          if [ "$FRESH_HOST" = "$HOST" ] || [ "$FRESH_CLIENT" = "$CLIENT" ] || [ "$FRESH_HOST" = "$FRESH_CLIENT" ]; then
+            echo "fresh-process-wrapper-pid-collision" >> .out/evidence/fresh-process-custody.txt
+            exit 0
+          fi
+          .out/probe/fresh-restart .out/host-user .out/client-user _quick_.asav "$SF_COOP_MODE" \
+            .out/evidence/fresh-os-process-rejoin.json > .out/evidence/fresh-os-process-rejoin-stdout.log 2>&1
+          echo "fresh_restart_probe_exit=$?" >> .out/evidence/exit.txt
+          kill -TERM "$FRESH_HOST" "$FRESH_CLIENT" 2>/dev/null || true
+          wait "$FRESH_HOST" 2>/dev/null || true
+          wait "$FRESH_CLIENT" 2>/dev/null || true
+          cp .out/host-user/openxcom.log .out/evidence/host-engine.log || true
+          cp .out/client-user/openxcom.log .out/evidence/client-engine.log || true
+          echo "Real multiplayer session initiated: false" >> .out/evidence/exit.txt
+          exit 0
+      - name: Upload both-process native logs and probe receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coop-${{ matrix.mode }}-original-asset-free-${{ github.run_id }}
+          path: .out/evidence/
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Qualify only engine-to-local-harness availability
+        if: always()
+        run: |
+          test -s .out/evidence/two-process.json
+          test "$(grep -c '"Pong": true' .out/evidence/two-process.json)" = 2
+      - name: Classify dependent host/join scenario separately
+        if: always()
+        shell: bash
+        run: |
+          test -s .out/evidence/session-progress.json
+          if grep -Eq '"FirstFailure": "[^"]+' .out/evidence/session-progress.json; then
+            echo 'SESSION_PROGRESS=FIRST_FAILURE_NOT_MULTIPLAYER_ACCEPTANCE' >> "$GITHUB_STEP_SUMMARY"
+            grep -E '"FirstFailure"|"HostNewGameReached"|"ClientJoinAccepted"' .out/evidence/session-progress.json >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo 'SESSION_PROGRESS=NO_FIRST_FAILURE_RECORDED_BUT_PLAYABILITY_UNQUALIFIED' >> "$GITHUB_STEP_SUMMARY"
+          node - <<'NODE'
+          const fs=require('fs');
+          const r=JSON.parse(fs.readFileSync('.out/evidence/session-progress.json','utf8'));
+          const keys=['CampaignMode','CampaignModeConsistent','ObservedSubsetEqual','WorldClockEqual','HostSavedBaseVisible','ClientSavedBaseVisible','HostStrategicReady','ClientStrategicReady','HostReleaseExecuted','ClientHoldReleased','HostTimeAdvanced','ClientTimeAdvanced','PostAdvanceClockEqual','HostThrowawaySaveLoad','ClientThrowawaySaveLoad','HostUiSaveIssued','HostUiSaveStatePopped','HostUiSaveFileObserved','ClientUiSaveIssued','ClientUiSaveSuppressed','RejoinAttempted','RejoinHostSaveLoaded','RejoinHostLobbyMode','RejoinHostStarted','RejoinClientJoined','RejoinClientWorldObserved','RejoinModeConsistent','RejoinFirstFailure','RealMultiplayerQualified','FirstFailure'];
+          const lines=['### Actual co-op native read-only classification', ...keys.map(k => '- '+k+': '+JSON.stringify(r[k])),'This classification is not tactical or shared-world acceptance.'];
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n')+'\n');
+          const want=process.env.SF_COOP_MODE==='shared'?'SHARED':'SEPARATE';
+          if(r.CampaignMode!==want||r.CampaignModeConsistent!==true)process.exit(1);
+          if(want==='SHARED' && (!r.ClientSeesHostBase||!r.HostWorldObserved||!r.ClientWorldObserved))process.exit(1);
+          if(!r.HostReleaseExecuted||!r.ClientHoldReleased||!r.HostStrategicReady||!r.ClientStrategicReady)process.exit(1);
+          if(!r.HostTimeAdvanced||!r.ClientTimeAdvanced||!r.PostAdvanceClockEqual)process.exit(1);
+          if(!r.HostThrowawaySaveLoad||!r.ClientThrowawaySaveLoad)process.exit(1);
+          if(!r.HostUiSaveIssued||!r.HostUiSaveStatePopped||!r.HostUiSaveFileObserved)process.exit(1);
+          if(!r.ClientUiSaveIssued||!r.ClientUiSaveSuppressed)process.exit(1);
+          if(!r.RejoinAttempted||!r.RejoinHostSaveLoaded||r.RejoinHostLobbyMode!==2||!r.RejoinHostStarted||!r.RejoinClientJoined||!r.RejoinClientWorldObserved||!r.RejoinModeConsistent)process.exit(1);
+          const fresh=JSON.parse(fs.readFileSync('.out/evidence/fresh-os-process-rejoin.json','utf8'));
+          if(fresh.FirstFailure||!fresh.NewProcessHostsRespond||!fresh.NativeSaveLoaded||!fresh.HostIdentityPreserved||fresh.ResumeLobbyMode!==2||!fresh.ClientRejoined||!fresh.ResumeCommandAccepted||!fresh.NativeHoldReleaseAccepted||!fresh.HostClockAdvancedAfterRestart||!fresh.ClientClockAdvancedAfterRestart||!fresh.ResumedClockEqual||!fresh.HostWorldObserved||!fresh.ClientWorldObserved||!fresh.ModeConsistent||(want==='SHARED'&&!fresh.SharedWorldSubsetEqual))process.exit(1);
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, '\n### Fresh OS-process restart: '+JSON.stringify(fresh)+'\n');
+          NODE
