@@ -118,10 +118,14 @@ func generate(root string) error{
  pck,tab,err:=encodePCK(surveyUnitFrames(),battleSpriteW,battleSpriteH)
  if err!=nil{return err}
  img,err:=spritePNG(pix);if err!=nil{return err}
+ floorPck,floorTab,floorMCD,err:=relayGroundAssets();if err!=nil{return err}
  outputs:=map[string][]byte{
   "GEODATA/PALETTES.DAT":paletteDAT(),
   "UNITS/SIGNALRELAY.PCK":pck,
   "UNITS/SIGNALRELAY.TAB":tab,
+  "TERRAIN/BLANKS.PCK":floorPck,
+  "TERRAIN/BLANKS.TAB":floorTab,
+  "TERRAIN/BLANKS.MCD":floorMCD,
   "Art/signal-relay.png":img,
   "Sound/signal-pulse.wav":soundWAV(),
   "SOUND/SAMPLE.CAT":encodeCAT(soundWAV(),4),
