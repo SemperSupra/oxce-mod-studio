@@ -1,0 +1,63 @@
+name: OXCE source-derived original game preflight
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/oxce-source-preflight.yml"
+      - "rdte/source-preflight/**"
+permissions:
+  contents: read
+concurrency:
+  group: oxce-source-preflight-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  fixture-prerequisites:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Check negative controls
+        run: cd rdte/source-preflight && go test -race ./...
+      - name: Generate exact original synthetic fixture and art
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .out/evidence
+          git init .out/fixtures
+          git -C .out/fixtures remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
+          git -C .out/fixtures fetch --depth 1 origin 56449c22a6831551ded82b732d913bafa5b19cd9
+          git -C .out/fixtures checkout --detach FETCH_HEAD
+          test "$(git -C .out/fixtures rev-parse HEAD)" = "56449c22a6831551ded82b732d913bafa5b19cd9"
+          node --check .out/fixtures/rdte/oxce-engine-synthetic/generate.mjs
+          node .out/fixtures/rdte/oxce-engine-synthetic/generate.mjs .out/generated
+          node .out/fixtures/rdte/oxce-engine-synthetic/generate-font.mjs .out/generated
+          node .out/fixtures/rdte/oxce-engine-synthetic/generate-legacy.mjs .out/generated/data/SYNTHETIC
+          test -s .out/generated/data/SYNTHETIC/SOUND/gmgeo1.wav
+          test -s .out/generated/data/SYNTHETIC/UNITS/SIGNALRELAY.PCK
+          test -s .out/generated/data/SYNTHETIC/UNITS/SIGNALRELAY.TAB
+          git init .out/original-art
+          git -C .out/original-art remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
+          git -C .out/original-art fetch --depth 1 origin 42be17ae50f9c323592e187572f57e1701e0f442
+          git -C .out/original-art checkout --detach FETCH_HEAD
+          (cd .out/original-art/rdte/signal-frontier-assets && go run . "$GITHUB_WORKSPACE/.out/art")
+          mkdir -p .out/generated/data/SYNTHETIC/multiplayer
+          cp .out/art/Art/signal-relay.png .out/generated/data/SYNTHETIC/multiplayer/base.png
+          cp .out/art/Art/signal-relay.png .out/generated/data/SYNTHETIC/multiplayer/avatar.png
+          sha256sum .out/generated/user/mods/rdte-synthetic-master/Ruleset/10-synthetic.rul .out/generated/data/SYNTHETIC/multiplayer/*.png > .out/evidence/inputs.sha256
+          sha256sum .out/generated/user/mods/rdte-synthetic-master/Language/rdte-fonts.* >> .out/evidence/inputs.sha256
+      - name: Produce bounded source necessary-condition verdict
+        run: cd rdte/source-preflight && go run . "$GITHUB_WORKSPACE/.out/generated" "$GITHUB_WORKSPACE/.out/evidence/preflight.json"
+      - name: Preserve evidence on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oxce-source-preflight-${{ github.run_id }}
+          path: .out/evidence/
+          retention-days: 7
+          if-no-files-found: warn
