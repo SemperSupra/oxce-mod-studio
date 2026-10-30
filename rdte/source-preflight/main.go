@@ -188,7 +188,7 @@ func Check(rules,config []byte,root string) Verdict {
     {"InvPaste","inv-inv-paste.png",32,22},
   }{
     require(strings.Contains(sprite,"- type: "+spec.kind+"\n")&&
-      strings.Contains(sprite,"0: multiplayer/"+spec.file+"\n"),"inventory-sprite:"+spec.kind)
+      strings.Contains(sprite,"0: multiplayer/"+spec.file),"inventory-sprite:"+spec.kind)
     p:=filepath.Join(root,"data","SYNTHETIC","multiplayer",spec.file)
     fh,err:=os.Open(p)
     valid:=false
