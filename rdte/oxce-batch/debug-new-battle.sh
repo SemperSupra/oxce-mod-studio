@@ -22,6 +22,10 @@ printf 'CLICK 420 200\n' >> "$dest/commands.txt"
 sleep 2
 # Reproduce the FIRST fatal: this is New Battle CONFIRM, not merely the menu.
 printf 'CLICK 116 368\n' >> "$dest/commands.txt"
+sleep 2
+# Reproduce the new first fatal: Briefing CONFIRM enters tactical inventory.
+# Game mailbox uses engine-local 640x400 coordinates, not screenshot pixels.
+printf 'CLICK 320 346\n' >> "$dest/commands.txt"
 wait "$debugger" || echo "gdb_exit=$?" > "$dest/gdb-exit.txt"
 # A missing backtrace is an open diagnostic, never treated as engine pass.
 grep -E 'Program received signal|Segmentation fault|^#([0-9]+) ' "$dest/gdb.log" \
