@@ -8,6 +8,7 @@ on:
       - ".github/workflows/modified-oxce-coop-two-process.yml"
       - "rdte/modified-engine-coop/probe/**"
       - "rdte/modified-engine-coop/session/**"
+      - "rdte/modified-engine-coop/restart/**"
 permissions:
   contents: read
   actions: read
@@ -32,7 +33,7 @@ jobs:
           go-version: '1.23'
           cache: false
       - name: Check campaign-mode classifier negatives before native processes
-        run: GO111MODULE=off go test ./rdte/modified-engine-coop/session
+        run: GO111MODULE=off go test ./rdte/modified-engine-coop/session ./rdte/modified-engine-coop/restart
       - name: Read verified original-game preflight result
         uses: actions/download-artifact@v4
         with:
@@ -103,6 +104,7 @@ jobs:
           mkdir -p .out/probe
           go build -o .out/probe/health rdte/modified-engine-coop/probe/main.go
           go build -o .out/probe/session rdte/modified-engine-coop/session/main.go
+          go build -o .out/probe/fresh-restart rdte/modified-engine-coop/restart/main.go
       - name: Start two isolated modified OXCE processes on loopback
         shell: bash
         run: |
@@ -146,8 +148,46 @@ jobs:
           # Batch: reuse these same two real binaries and user profiles for the next dependent gate.
           .out/probe/session .out/host-user .out/client-user .out/evidence/session-progress.json > .out/evidence/session-stdout.log 2>&1
           echo "session_probe_exit=$?" >> .out/evidence/exit.txt
-          wait "$HOST" || echo "host_exit=$?" >> .out/evidence/exit.txt
-          wait "$CLIENT" || echo "client_exit=$?" >> .out/evidence/exit.txt
+          # Preserve actual per-instance host native logs prior to disposal.
+          cp .out/host-user/openxcom.log .out/evidence/host-engine-first.log || true
+          cp .out/client-user/openxcom.log .out/evidence/client-engine-first.log || true
+          echo "original_host_wrapper_pid=$HOST original_client_wrapper_pid=$CLIENT" > .out/evidence/fresh-process-custody.txt
+          # Strict process boundary: stop BOTH original OS-process wrappers and wait.
+          kill -TERM "$HOST" "$CLIENT" 2>/dev/null || true
+          wait "$HOST" 2>/dev/null || true
+          wait "$CLIENT" 2>/dev/null || true
+          if kill -0 "$HOST" 2>/dev/null || kill -0 "$CLIENT" 2>/dev/null; then
+            echo "old-process-remains-running" >> .out/evidence/fresh-process-custody.txt
+            exit 0
+          fi
+          if ! test -s .out/host-user/rdte-synthetic-master/_quick_.asav; then
+            echo "no-host-owned-native-save" >> .out/evidence/fresh-process-custody.txt
+            exit 0
+          fi
+          sha256sum .out/host-user/rdte-synthetic-master/_quick_.asav > .out/evidence/fresh-restart-authoritative-save.sha256
+          # Require new testserver discovery. Never accidentally connect to the prior
+          # process or its stale testserver_port.txt.
+          rm -f .out/host-user/testserver_port.txt .out/client-user/testserver_port.txt
+          OXC_TEST_PORT=0 SDL_AUDIODRIVER=dummy timeout 85s "$BIN" \
+            -data "$DATA" -user "$PWD/.out/host-user" -config "$PWD/.out/host-config" \
+            > .out/evidence/host-fresh-stdout.log 2>&1 &
+          FRESH_HOST=$!
+          sleep 1
+          OXC_TEST_PORT=0 SDL_AUDIODRIVER=dummy timeout 85s "$BIN" \
+            -data "$DATA" -user "$PWD/.out/client-user" -config "$PWD/.out/client-config" \
+            > .out/evidence/client-fresh-stdout.log 2>&1 &
+          FRESH_CLIENT=$!
+          echo "new_host_wrapper_pid=$FRESH_HOST new_client_wrapper_pid=$FRESH_CLIENT" >> .out/evidence/fresh-process-custody.txt
+          if [ "$FRESH_HOST" = "$HOST" ] || [ "$FRESH_CLIENT" = "$CLIENT" ] || [ "$FRESH_HOST" = "$FRESH_CLIENT" ]; then
+            echo "fresh-process-wrapper-pid-collision" >> .out/evidence/fresh-process-custody.txt
+            exit 0
+          fi
+          .out/probe/fresh-restart .out/host-user .out/client-user _quick_.asav "$SF_COOP_MODE" \
+            .out/evidence/fresh-os-process-rejoin.json > .out/evidence/fresh-os-process-rejoin-stdout.log 2>&1
+          echo "fresh_restart_probe_exit=$?" >> .out/evidence/exit.txt
+          kill -TERM "$FRESH_HOST" "$FRESH_CLIENT" 2>/dev/null || true
+          wait "$FRESH_HOST" 2>/dev/null || true
+          wait "$FRESH_CLIENT" 2>/dev/null || true
           cp .out/host-user/openxcom.log .out/evidence/host-engine.log || true
           cp .out/client-user/openxcom.log .out/evidence/client-engine.log || true
           echo "Real multiplayer session initiated: false" >> .out/evidence/exit.txt
@@ -191,4 +231,7 @@ jobs:
           if(!r.HostUiSaveIssued||!r.HostUiSaveStatePopped||!r.HostUiSaveFileObserved)process.exit(1);
           if(!r.ClientUiSaveIssued||!r.ClientUiSaveSuppressed)process.exit(1);
           if(!r.RejoinAttempted||!r.RejoinHostSaveLoaded||r.RejoinHostLobbyMode!==2||!r.RejoinHostStarted||!r.RejoinClientJoined||!r.RejoinClientWorldObserved||!r.RejoinModeConsistent)process.exit(1);
+          const fresh=JSON.parse(fs.readFileSync('.out/evidence/fresh-os-process-rejoin.json','utf8'));
+          if(fresh.FirstFailure||!fresh.NewProcessHostsRespond||!fresh.NativeSaveLoaded||!fresh.HostIdentityPreserved||fresh.ResumeLobbyMode!==2||!fresh.ClientRejoined||!fresh.ResumeCommandAccepted||!fresh.HostWorldObserved||!fresh.ClientWorldObserved||!fresh.ModeConsistent||(want==='SHARED'&&!fresh.SharedWorldSubsetEqual))process.exit(1);
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, '\n### Fresh OS-process restart: '+JSON.stringify(fresh)+'\n');
           NODE
