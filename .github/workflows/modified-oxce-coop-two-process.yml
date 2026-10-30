@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       SF_COOP_MODE: ${{ matrix.mode }}
+      SF_COOP_REJOIN_PROBE: '1'
     timeout-minutes: 16
     steps:
       - uses: actions/checkout@v4
@@ -129,13 +130,13 @@ jobs:
             exit 0
           fi
           export DISPLAY="$DISPLAY_ID"
-          OXC_TEST_PORT=0 SDL_AUDIODRIVER=dummy timeout 60s "$BIN" \
+          OXC_TEST_PORT=0 SDL_AUDIODRIVER=dummy timeout 100s "$BIN" \
             -data "$DATA" -user "$PWD/.out/host-user" -config "$PWD/.out/host-config" \
             > .out/evidence/host-stdout.log 2>&1 &
           HOST=$!
           # Require a rendered host frame before starting the second SDL client.
           sleep 1
-          OXC_TEST_PORT=0 SDL_AUDIODRIVER=dummy timeout 60s "$BIN" \
+          OXC_TEST_PORT=0 SDL_AUDIODRIVER=dummy timeout 100s "$BIN" \
             -data "$DATA" -user "$PWD/.out/client-user" -config "$PWD/.out/client-config" \
             > .out/evidence/client-stdout.log 2>&1 &
           CLIENT=$!
@@ -178,7 +179,7 @@ jobs:
           node - <<'NODE'
           const fs=require('fs');
           const r=JSON.parse(fs.readFileSync('.out/evidence/session-progress.json','utf8'));
-          const keys=['CampaignMode','CampaignModeConsistent','ObservedSubsetEqual','WorldClockEqual','HostSavedBaseVisible','ClientSavedBaseVisible','HostStrategicReady','ClientStrategicReady','HostReleaseExecuted','ClientHoldReleased','HostTimeAdvanced','ClientTimeAdvanced','PostAdvanceClockEqual','HostThrowawaySaveLoad','ClientThrowawaySaveLoad','HostUiSaveIssued','HostUiSaveStatePopped','HostUiSaveFileObserved','ClientUiSaveIssued','ClientUiSaveSuppressed','RealMultiplayerQualified','FirstFailure'];
+          const keys=['CampaignMode','CampaignModeConsistent','ObservedSubsetEqual','WorldClockEqual','HostSavedBaseVisible','ClientSavedBaseVisible','HostStrategicReady','ClientStrategicReady','HostReleaseExecuted','ClientHoldReleased','HostTimeAdvanced','ClientTimeAdvanced','PostAdvanceClockEqual','HostThrowawaySaveLoad','ClientThrowawaySaveLoad','HostUiSaveIssued','HostUiSaveStatePopped','HostUiSaveFileObserved','ClientUiSaveIssued','ClientUiSaveSuppressed','RejoinAttempted','RejoinHostSaveLoaded','RejoinHostLobbyMode','RejoinHostStarted','RejoinClientJoined','RejoinClientWorldObserved','RejoinModeConsistent','RejoinFirstFailure','RealMultiplayerQualified','FirstFailure'];
           const lines=['### Actual co-op native read-only classification', ...keys.map(k => '- '+k+': '+JSON.stringify(r[k])),'This classification is not tactical or shared-world acceptance.'];
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n')+'\n');
           const want=process.env.SF_COOP_MODE==='shared'?'SHARED':'SEPARATE';
@@ -189,4 +190,5 @@ jobs:
           if(!r.HostThrowawaySaveLoad||!r.ClientThrowawaySaveLoad)process.exit(1);
           if(!r.HostUiSaveIssued||!r.HostUiSaveStatePopped||!r.HostUiSaveFileObserved)process.exit(1);
           if(!r.ClientUiSaveIssued||!r.ClientUiSaveSuppressed)process.exit(1);
+          if(!r.RejoinAttempted||!r.RejoinHostSaveLoaded||r.RejoinHostLobbyMode!==2||!r.RejoinHostStarted||!r.RejoinClientJoined||!r.RejoinClientWorldObserved||!r.RejoinModeConsistent)process.exit(1);
           NODE
