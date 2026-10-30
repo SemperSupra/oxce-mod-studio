@@ -134,6 +134,28 @@ jobs:
           console.log(JSON.stringify(receipt));
           if(!receipt.InventoryObserved||!receipt.FirstTurnOverlayObserved||!returnToBattle||firstFatal)process.exit(1);
           NODE
+      - name: Exercise genuine Battlescape End Turn button and inspect faction transition
+        shell: bash
+        run: |
+          SF_INVENTORY_CONFIRM=1 SF_NEXT_TURN_CONTINUE=1 SF_BATTLE_END_TURN=1 timeout --kill-after=2s 30s xvfb-run -a bash rdte/oxce-batch/run-case.sh \
+            .out/package new-battle-briefing-continue .out/evidence/end-turn-button || true
+          node <<'NODE'
+          const fs=require('fs');
+          const root='.out/evidence/end-turn-button';
+          const raw=fs.existsSync(root+'/trace.jsonl')?fs.readFileSync(root+'/trace.jsonl','utf8'):'';
+          const states=raw.split(/\r?\n/).filter(Boolean).flatMap(s=>{try{return [JSON.parse(s).class||'']}catch{return []}});
+          const inv=states.findIndex(s=>s.includes('InventoryState'));
+          const firstTurn=states.findIndex((s,i)=>i>inv&&s.includes('NextTurnState'));
+          const battle=states.findIndex((s,i)=>i>firstTurn&&s.includes('BattlescapeState'));
+          const secondTurn=states.findIndex((s,i)=>i>battle&&s.includes('NextTurnState'));
+          const last=states.at(-1)||'';
+          const log=fs.existsSync(root+'/user/openxcom.log')?fs.readFileSync(root+'/user/openxcom.log','utf8'):'';
+          const fatal=log.split(/\r?\n/).find(x=>x.includes('[FATAL]'))||'';
+          const receipt={EvidenceClass:'ACTUAL_NATIVE_END_TURN_BUTTON_AND_SUBSEQUENT_STATE_NOT_ENEMY_AI_GAMEPLAY',InventoryObserved:inv>=0,FirstNextTurn: firstTurn>inv,ActiveBattlescape: battle>firstTurn,SecondNextTurn:secondTurn>battle,FinalClass:last,FirstFatal:fatal,GameplayQualified:false};
+          fs.writeFileSync('.out/evidence/end-turn-button-receipt.json',JSON.stringify(receipt,null,2)+'\n');
+          console.log(JSON.stringify(receipt));
+          if(!receipt.InventoryObserved||!receipt.FirstNextTurn||!receipt.ActiveBattlescape||!receipt.SecondNextTurn||fatal)process.exit(1);
+          NODE
       - name: Symbolize first native tactical crash using the same verified engine binary
         if: failure()
         shell: bash
