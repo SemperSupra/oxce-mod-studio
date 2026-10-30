@@ -75,6 +75,13 @@ func batch(root string)Receipt{
  return r
 }
 func main(){
+ if len(os.Args)==4&&os.Args[1]=="--tactical"{
+  raw,e:=os.ReadFile(os.Args[2]);receipt:=assessTacticalTelemetry(raw)
+  if e!=nil{receipt.FirstFailure="native-telemetry-unavailable: "+e.Error()}
+  out,err:=json.MarshalIndent(receipt,"","  ");if err!=nil{panic(err)}
+  if err=os.WriteFile(os.Args[3],append(out,byte(10)),0644);err!=nil{panic(err)}
+  fmt.Println(string(out));if receipt.FirstFailure!=""{os.Exit(1)};return
+ }
  if len(os.Args)!=3{fmt.Fprintln(os.Stderr,"usage: inspect <root> <out.json>");os.Exit(2)}
  r:=batch(os.Args[1]);b,e:=json.MarshalIndent(r,"","  ");if e!=nil{panic(e)}
  if e=os.WriteFile(os.Args[2],append(b,byte(10)),0644);e!=nil{panic(e)}
