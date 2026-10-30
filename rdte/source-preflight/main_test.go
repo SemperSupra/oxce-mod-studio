@@ -1,5 +1,8 @@
 package main
 import (
+  "image"
+  "image/color"
+  "image/png"
   "os"
   "path/filepath"
   "strings"
@@ -55,6 +58,15 @@ func validRoot(t *testing.T) string{
     lang+="  "+key+": \"Readable test translation\"\n"
   }
   if err:=os.WriteFile(filepath.Join(langDir,"en-US.yml"),[]byte(lang),0600);err!=nil{t.Fatal(err)}
+  font:=image.NewPaletted(image.Rect(0,0,128,72),color.Palette{
+    color.RGBA{0,0,0,255},color.RGBA{255,255,255,255},color.RGBA{40,50,65,255},
+  })
+  font.SetColorIndex(2,2,1)
+  atlas,err:=os.Create(filepath.Join(langDir,"rdte-fonts.png"))
+  if err!=nil{t.Fatal(err)}
+  if err:=png.Encode(atlas,font);err!=nil{t.Fatal(err)}
+  if err:=atlas.Close();err!=nil{t.Fatal(err)}
+  if err:=os.WriteFile(filepath.Join(langDir,"rdte-fonts.yml"),[]byte("fonts:\n  - id: FONT_SMALL\n  - id: FONT_BIG\n"),0600);err!=nil{t.Fatal(err)}
   return root
 }
 func TestNecessarySourceConditions(t *testing.T){
@@ -253,4 +265,19 @@ func TestPinnedHUDProgressBarRequired(t *testing.T) {
  bad:=strings.Replace(fixture,"      - id: thinkingProgressBar\n","      - id: MISSING_ProgressBar\n",1)
  v:=Check([]byte(bad),[]byte("playIntro: false"),validRoot(t))
  if !strings.Contains(strings.Join(v.Missing,","),"interfaces:battlescape:thinkingProgressBar"){t.Fatal(v)}
+}
+
+func TestAlternatingInvisibleFontPixelsFailClosed(t *testing.T){
+ root:=validRoot(t)
+ font:=image.NewPaletted(image.Rect(0,0,128,72),color.Palette{
+   color.RGBA{0,0,0,255},color.RGBA{255,255,255,255},color.RGBA{40,50,65,255},
+ })
+ font.SetColorIndex(2,2,1)
+ font.SetColorIndex(4,2,2)
+ p:=filepath.Join(root,"user","mods","rdte-synthetic-master","Language","rdte-fonts.png")
+ out,err:=os.Create(p);if err!=nil{t.Fatal(err)}
+ if err=png.Encode(out,font);err!=nil{t.Fatal(err)}
+ if err=out.Close();err!=nil{t.Fatal(err)}
+ v:=Check([]byte(fixture),[]byte("playIntro: false"),root)
+ if !strings.Contains(strings.Join(v.Missing,","),"font:original-128x72-visible-single-index"){t.Fatal(v)}
 }
