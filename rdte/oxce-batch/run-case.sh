@@ -33,6 +33,12 @@ if kill -0 "$pid" 2>/dev/null; then
       sleep 2
       # Pinned NextTurnState::handle closes on a real mouse-down, any point.
       printf 'CLICK 320 200\n' >> "$target/commands.txt"
+      if [ "${SF_BATTLE_END_TURN:-0}" = 1 ]; then
+        sleep 3
+        # 320x200 logical battlescape: EndTurn (x+240,y)=(240,144).
+        # 640x400 mailbox input scales logical coordinates by two.
+        printf 'CLICK 510 304\n' >> "$target/commands.txt"
+      fi
     fi
   fi ;;
  new-game-confirm) printf 'CLICK 220 200\n' >> "$target/commands.txt"; sleep 2; printf 'CLICK 238 344\n' >> "$target/commands.txt" ;;
