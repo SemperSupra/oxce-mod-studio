@@ -29,6 +29,11 @@ if kill -0 "$pid" 2>/dev/null; then
     # Pinned InventoryState::_btnOk: x237..272, y1..23 on 320x200
     # coordinate scale 2 in original modified 640x400 mailbox.
     printf 'CLICK 510 22\n' >> "$target/commands.txt"
+    if [ "${SF_NEXT_TURN_CONTINUE:-0}" = 1 ]; then
+      sleep 2
+      # Pinned NextTurnState::handle closes on a real mouse-down, any point.
+      printf 'CLICK 320 200\n' >> "$target/commands.txt"
+    fi
   fi ;;
  new-game-confirm) printf 'CLICK 220 200\n' >> "$target/commands.txt"; sleep 2; printf 'CLICK 238 344\n' >> "$target/commands.txt" ;;
  *) echo 'invalid scenario' >&2; exit 2 ;;
