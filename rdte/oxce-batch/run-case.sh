@@ -32,7 +32,12 @@ if kill -0 "$pid" 2>/dev/null; then
     if [ "${SF_NEXT_TURN_CONTINUE:-0}" = 1 ]; then
       sleep 2
       # Pinned NextTurnState::handle closes on a real mouse-down, any point.
-      printf 'CLICK 320 200\n' >> "$target/commands.txt"
+      if [ "${SF_NEXT_TURN_KEYBOARD:-0}" = 1 ]; then
+        # SDL 1.2 SDLK_RETURN=13; NextTurnState::handle closes on key down.
+        printf 'KEY 13\n' >> "$target/commands.txt"
+      else
+        printf 'CLICK 320 200\n' >> "$target/commands.txt"
+      fi
       if [ "${SF_BATTLE_END_TURN:-0}" = 1 ]; then
         sleep 3
         # 320x200 logical battlescape: EndTurn (x+240,y)=(240,144).
