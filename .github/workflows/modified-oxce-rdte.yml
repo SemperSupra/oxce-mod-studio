@@ -1,0 +1,140 @@
+name: Modified OXCE local-control technical preview
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/modified-oxce-rdte.yml"
+      - "rdte/modified-engine/**"
+
+permissions:
+  contents: read
+concurrency:
+  group: modified-oxce-rdte-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  build-linux-tech-preview:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout public original-only control layer
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Install public engine build and Go dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config git \
+            libsdl1.2-dev libsdl-image1.2-dev libsdl-gfx1.2-dev \
+            libsdl-mixer1.2-dev libyaml-cpp-dev libboost-dev \
+            libgl1-mesa-dev xvfb xauth
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+      - name: Fail-closed broker tests and patcher syntax
+        run: |
+          node --check rdte/modified-engine/patch-engine.mjs
+          node --check rdte/modified-engine/patch-battle-telemetry.mjs
+          cd rdte/modified-engine/broker
+          go test -race ./...
+      - name: Fetch exactly pinned public GPL engine
+        run: |
+          mkdir -p .out/modified-evidence
+          git init .out/oxce-public
+          git -C .out/oxce-public remote add origin https://github.com/MeridianOXC/OpenXcom.git
+          git -C .out/oxce-public fetch --depth 1 origin 668880bb756852f0734cfe92e438e400080a2f4d
+          git -C .out/oxce-public checkout --detach FETCH_HEAD
+          test "$(git -C .out/oxce-public rev-parse HEAD)" = "668880bb756852f0734cfe92e438e400080a2f4d"
+          git init .out/fixture-public
+          git -C .out/fixture-public remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
+          git -C .out/fixture-public fetch --depth 1 origin bf7ebe38d95cea319b46c83e178b09279a8dab4a
+          git -C .out/fixture-public checkout --detach FETCH_HEAD
+          test "$(git -C .out/fixture-public rev-parse HEAD)" = "bf7ebe38d95cea319b46c83e178b09279a8dab4a"
+      - name: Apply opt-in control instrumentation
+        run: |
+          node rdte/modified-engine/patch-engine.mjs .out/oxce-public/src/Engine/Game.cpp | tee .out/modified-evidence/patch.txt
+          node rdte/modified-engine/patch-battle-telemetry.mjs .out/oxce-public/src/Engine/Game.cpp | tee .out/modified-evidence/tactical-patch.txt
+          grep -q 'SF_RDTE_EVAL_BEGIN' .out/oxce-public/src/Engine/Game.cpp
+          grep -q 'SF_RDTE_TACTICAL_BEGIN' .out/oxce-public/src/Engine/Game.cpp
+      - name: Compile modified actual OXCE engine
+        shell: bash
+        run: |
+          set +e
+          cmake -S .out/oxce-public -B .out/modified-build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_PACKAGE=OFF -DDEV_BUILD=OFF > .out/modified-evidence/configure.log 2>&1
+          c=$?
+          echo "configure_exit=$c" | tee .out/modified-evidence/exits.txt
+          if [ "$c" = 0 ]; then
+            cmake --build .out/modified-build --parallel 4 > .out/modified-evidence/build.log 2>&1
+            b=$?
+          else
+            b=125
+          fi
+          echo "build_exit=$b" | tee -a .out/modified-evidence/exits.txt
+          test "$b" = 0
+      - name: Compile accessible control companion
+        run: |
+          mkdir -p .out/modified-package
+          cd rdte/modified-engine/broker
+          CGO_ENABLED=0 go build -trimpath -o "$GITHUB_WORKSPACE/.out/modified-package/oxce-rdte-broker" .
+      - name: Generate original synthetic game research data
+        run: |
+          node .out/fixture-public/rdte/oxce-engine-synthetic/generate.mjs .out/synthetic
+          node .out/fixture-public/rdte/oxce-engine-synthetic/generate-font.mjs .out/synthetic
+          node .out/fixture-public/rdte/oxce-engine-synthetic/generate-legacy.mjs .out/synthetic/data/SYNTHETIC
+          cp -a .out/oxce-public/bin/common .out/synthetic/data/common
+          cp -a .out/oxce-public/bin/standard .out/synthetic/data/standard
+          test ! -e .out/synthetic/data/UFO
+          test ! -e .out/synthetic/data/TFTD
+          cp -a .out/synthetic/data .out/modified-package/
+          cp -a .out/synthetic/user .out/modified-package/
+          cp -a .out/synthetic/config .out/modified-package/
+          cp .out/modified-build/bin/openxcom .out/modified-package/openxcom-sf-rdte
+          cp .out/oxce-public/LICENSE.txt .out/modified-package/LICENSE-OXCE-GPL3.txt
+          cp rdte/modified-engine/broker/index.html .out/modified-package/index.html
+          cp rdte/modified-engine/README.md .out/modified-package/README.md
+      - name: Smoke modified engine with local SDL mailbox
+        shell: bash
+        run: |
+          mkdir -p .out/modified-run
+          touch .out/modified-run/commands.txt
+          chmod 600 .out/modified-run/commands.txt
+          OXCE_RDTE_MAILBOX="$PWD/.out/modified-run/commands.txt" \
+          OXCE_RDTE_TRACE="$PWD/.out/modified-run/trace.jsonl" \
+          SDL_AUDIODRIVER=dummy timeout --kill-after=3s 18s xvfb-run -a \
+            .out/modified-package/openxcom-sf-rdte \
+            -data "$PWD/.out/modified-package/data" \
+            -user "$PWD/.out/modified-package/user" \
+            -config "$PWD/.out/modified-package/config" \
+            > .out/modified-evidence/engine.log 2>&1 &
+          pid=$!
+          sleep 5
+          printf 'KEY 13\nKEY 27\n' >> .out/modified-run/commands.txt
+          wait "$pid" || true
+          cp .out/modified-run/commands.txt .out/modified-evidence/commands.txt
+          cp .out/modified-run/trace.jsonl .out/modified-evidence/trace.jsonl || true
+          grep -q 'Loading ended.' .out/modified-package/user/openxcom.log && echo 'native-load-marker=PASS' >> .out/modified-evidence/exits.txt || true
+          test -s .out/modified-evidence/trace.jsonl
+      - name: Package separately labeled technical preview
+        run: |
+          sha256sum .out/modified-package/openxcom-sf-rdte .out/modified-package/oxce-rdte-broker \
+            .out/modified-package/LICENSE-OXCE-GPL3.txt > .out/modified-evidence/binaries.sha256
+          tar -C .out/modified-package -czf .out/signal-frontier-modified-oxce-linux-x86_64-TECH-PREVIEW.tar.gz .
+          sha256sum .out/signal-frontier-modified-oxce-linux-x86_64-TECH-PREVIEW.tar.gz >> .out/modified-evidence/binaries.sha256
+          echo "Technical build only: NOT a multiplayer or accessibility-complete release." >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload technical preview package
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: modified-oxce-tech-preview-${{ github.run_id }}
+          path: .out/signal-frontier-modified-oxce-linux-x86_64-TECH-PREVIEW.tar.gz
+          retention-days: 7
+      - name: Upload original native evidence even on first failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: modified-oxce-evidence-${{ github.run_id }}
+          path: .out/modified-evidence/
+          retention-days: 7
+          if-no-files-found: warn
