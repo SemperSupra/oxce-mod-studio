@@ -58,7 +58,7 @@ writeFileSync(join(mod,'Ruleset/10-synthetic.rul'),[
   '    subX: 7',
   '    subY: 7',
   '    files:',
-  '      0: multiplayer/tiny-ranks.png'
+  '      0: multiplayer/tiny-ranks.png',
   'interfaces:',
   '  - type: mainMenu',
   '    backgroundImage: BACK01.SCR',
