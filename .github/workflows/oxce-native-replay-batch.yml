@@ -47,8 +47,8 @@ jobs:
       - name: Fetch pinned native-independent source-preflight artifact
         uses: actions/download-artifact@v4
         with:
-          name: oxce-source-preflight-41007057206
-          run-id: 41007057206
+          name: oxce-source-preflight-41008484728
+          run-id: 41008484728
           github-token: ${{ github.token }}
           path: .out/source-gate
       - name: Require real negative-controlled source-preflight verdict
@@ -59,9 +59,9 @@ jobs:
         run: |
           git init .out/original-game-rules
           git -C .out/original-game-rules remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
-          git -C .out/original-game-rules fetch --depth 1 origin f2c92ddcb5f56bd225b4e1cf84118497ec90361a
+          git -C .out/original-game-rules fetch --depth 1 origin 56449c22a6831551ded82b732d913bafa5b19cd9
           git -C .out/original-game-rules checkout --detach FETCH_HEAD
-          test "$(git -C .out/original-game-rules rev-parse HEAD)" = "f2c92ddcb5f56bd225b4e1cf84118497ec90361a"
+          test "$(git -C .out/original-game-rules rev-parse HEAD)" = "56449c22a6831551ded82b732d913bafa5b19cd9"
           node .out/original-game-rules/rdte/oxce-engine-synthetic/generate.mjs .out/new-rules
           node .out/original-game-rules/rdte/oxce-engine-synthetic/generate-font.mjs .out/new-rules
           node --check .out/original-game-rules/rdte/oxce-engine-synthetic/generate-legacy.mjs
