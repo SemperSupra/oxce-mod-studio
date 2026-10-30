@@ -112,6 +112,28 @@ jobs:
           console.log(JSON.stringify(evidence));
           if(!evidence.InventoryObserved||!evidence.PostInventoryTacticalObserved||last.includes('InventoryState')||fatals.length)process.exit(1);
           NODE
+      - name: Exercise actual Next Turn overlay and require live Battlescape return
+        shell: bash
+        run: |
+          SF_INVENTORY_CONFIRM=1 SF_NEXT_TURN_CONTINUE=1 timeout --kill-after=2s 20s xvfb-run -a bash rdte/oxce-batch/run-case.sh \
+            .out/package new-battle-briefing-continue .out/evidence/next-turn-confirm || true
+          node <<'NODE'
+          const fs=require('fs');
+          const root='.out/evidence/next-turn-confirm';
+          const raw=fs.existsSync(root+'/trace.jsonl')?fs.readFileSync(root+'/trace.jsonl','utf8'):'';
+          const classes=raw.split(/\r?\n/).filter(Boolean).flatMap(s=>{try{return [JSON.parse(s).class||'']}catch{return []}});
+          const inv=classes.findIndex(x=>x.includes('InventoryState'));
+          const turn=classes.findIndex((x,i)=>i>inv&&x.includes('NextTurnState'));
+          const later=turn>=0?classes.slice(turn+1):[];
+          const returnToBattle=later.some(x=>x.includes('BattlescapeState'));
+          const finalClass=classes.at(-1)||'';
+          const log=fs.existsSync(root+'/user/openxcom.log')?fs.readFileSync(root+'/user/openxcom.log','utf8'):'';
+          const firstFatal=log.split(/\r?\n/).find(x=>x.includes('[FATAL]'))||'';
+          const receipt={EvidenceClass:'ACTUAL_ENGINE_FIRST_TURN_OVERLAY_DISMISSAL_NOT_PLAYER_OR_ENEMY_ACTION',InventoryObserved:inv>=0,FirstTurnOverlayObserved:turn>inv,ReturnedToBattlescape:returnToBattle,FinalClass:finalClass,FirstFatal:firstFatal,GameplayQualified:false};
+          fs.writeFileSync('.out/evidence/first-turn-overlay-receipt.json',JSON.stringify(receipt,null,2)+'\n');
+          console.log(JSON.stringify(receipt));
+          if(!receipt.InventoryObserved||!receipt.FirstTurnOverlayObserved||!returnToBattle||firstFatal)process.exit(1);
+          NODE
       - name: Symbolize first native tactical crash using the same verified engine binary
         if: failure()
         shell: bash
