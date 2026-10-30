@@ -52,6 +52,11 @@ type Result struct{
  ClientStatesAfterRelease []string
  HostGeoAfterRelease map[string]interface{}
  ClientGeoAfterRelease map[string]interface{}
+ HostTimeAdvanced bool
+ ClientTimeAdvanced bool
+ PostAdvanceClockEqual bool
+ HostTimeAfterAdvance interface{}
+ ClientTimeAfterAdvance interface{}
  FirstFailure string
  Commands []string
 }
@@ -289,6 +294,30 @@ func main(){
  if mode=="shared" {
    h,_:=json.Marshal(r.HostGeoAfterRelease);c,_:=json.Marshal(r.ClientGeoAfterRelease)
    if string(h)!=string(c) {r.FirstFailure="shared-geo-diverged-after-resume";return}
+ }
+ // Exercise the pinned GeoscapeState::setTimeSpeedIndex through the real
+ // geo_set_speed control on BOTH players. The button drives ordinary timer
+ // ticks and sends the co-op speed signal (unlike directly editing GameTime).
+ if _,ok:=cmd(host,map[string]interface{}{"cmd":"geo_set_speed","idx":1});!ok{return}
+ if _,ok:=cmd(client,map[string]interface{}{"cmd":"geo_set_speed","idx":1});!ok{return}
+ h0,_:=json.Marshal(r.HostGeoAfterRelease["time"])
+ c0,_:=json.Marshal(r.ClientGeoAfterRelease["time"])
+ untilTick:=time.Now().Add(6*time.Second)
+ for time.Now().Before(untilTick){
+   hv,he:=host.run(map[string]interface{}{"cmd":"geo_state"})
+   cv,ce:=client.run(map[string]interface{}{"cmd":"geo_state"})
+   if he!=nil||ce!=nil {r.ClientObservation+=" geo-tick-read-failed";break}
+   r.HostTimeAfterAdvance=hv["time"];r.ClientTimeAfterAdvance=cv["time"]
+   hb,_:=json.Marshal(hv["time"]);cb,_:=json.Marshal(cv["time"])
+   r.HostTimeAdvanced=string(hb)!=string(h0)
+   r.ClientTimeAdvanced=string(cb)!=string(c0)
+   r.PostAdvanceClockEqual=string(hb)==string(cb)
+   if r.HostTimeAdvanced&&r.ClientTimeAdvanced&&r.PostAdvanceClockEqual {break}
+   time.Sleep(250*time.Millisecond)
+ }
+ if !r.HostTimeAdvanced||!r.ClientTimeAdvanced||!r.PostAdvanceClockEqual {
+   r.FirstFailure=fmt.Sprintf("real-geoscape-clock-not-mirrored: host=%v client=%v",r.HostTimeAfterAdvance,r.ClientTimeAfterAdvance)
+   return
  }
  // Still no shared world checksum or tactical turn-by-turn equivalence.
  // Distinct single-player saves in a co-op lobby are not proof of sync.
