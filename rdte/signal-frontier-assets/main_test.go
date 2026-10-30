@@ -17,7 +17,7 @@ func TestDeterministicGeneration(t *testing.T){
  am,_:=os.ReadFile(filepath.Join(a,"manifest.json"));bm,_:=os.ReadFile(filepath.Join(b,"manifest.json"))
  if !bytes.Equal(am,bm){t.Fatal("nondeterministic manifest")}
  var m manifest;if err:=json.Unmarshal(am,&m);err!=nil{t.Fatal(err)}
- if !m.OriginalContent||m.ActualEngineQualified||len(m.Files)!=7{t.Fatalf("provenance or count %+v",m)}
+ if !m.OriginalContent||m.ActualEngineQualified||len(m.Files)!=10{t.Fatalf("provenance or count %+v",m)}
  for _,v:=range m.Files{
   x,err:=os.ReadFile(filepath.Join(a,v.Path));if err!=nil{t.Fatal(err)}
   y,err:=os.ReadFile(filepath.Join(b,v.Path));if err!=nil{t.Fatal(err)}
