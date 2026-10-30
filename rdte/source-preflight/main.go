@@ -168,6 +168,7 @@ func Check(rules,config []byte,root string) Verdict {
   sprites:=[]struct{kind string;path string;width,height int;label string}{
     {"Touch","multiplayer/touch-controls.png",320,24,"original-touch-ten-frames"},
     {"TinyRanks","multiplayer/tiny-ranks.png",42,7,"original-ranks-six-frames"},
+    {"KneelButton","multiplayer/kneel-button.png",64,16,"kneel-button-two-frames"},
   }
   for _,spec:=range sprites {
     require(strings.Contains(sprite,"- type: "+spec.kind)&&
