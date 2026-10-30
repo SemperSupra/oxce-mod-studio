@@ -27,17 +27,17 @@ jobs:
         run: |
           cd rdte/oxce-batch
           GO111MODULE=off go test ./...
-          GO111MODULE=off go build -o "$GITHUB_WORKSPACE/.out-inspect" inspect.go
+          GO111MODULE=off go build -o "$GITHUB_WORKSPACE/.out-inspect" inspect.go telemetry.go
       - uses: actions/download-artifact@v4
         with:
-          name: modified-oxce-tech-preview-40899658518
-          run-id: 40899658518
+          name: modified-oxce-tech-preview-41020431721
+          run-id: 41020431721
           github-token: ${{ github.token }}
           path: .out/download
       - name: Verify immutable executable before testing
         run: |
           mkdir -p .out/package .out/evidence
-          echo '217b9c4941c0f59045aacd7f0c778f4eda162fdd948931949e9c9dd0ec9c0b18  .out/download/signal-frontier-modified-oxce-linux-x86_64-TECH-PREVIEW.tar.gz' | sha256sum -c
+          echo '6f94eb6175ac4a2d2ba81afece408ad673e2620672b009644dd2d90d482f2849  .out/download/signal-frontier-modified-oxce-linux-x86_64-TECH-PREVIEW.tar.gz' | sha256sum -c
           tar -C .out/package -xzf .out/download/signal-frontier-modified-oxce-linux-x86_64-TECH-PREVIEW.tar.gz
           test -x .out/package/openxcom-sf-rdte
           test -f .out/package/LICENSE-OXCE-GPL3.txt
@@ -80,15 +80,20 @@ jobs:
         run: |
           git init .out/original-tactical-art
           git -C .out/original-tactical-art remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
-          git -C .out/original-tactical-art fetch --depth 1 origin 730028c707c08438a88be6c5542d70f53cfe5a85
+          git -C .out/original-tactical-art fetch --depth 1 origin a642615e3f32b909507cf66b0c78ba8e72d31bcb
           git -C .out/original-tactical-art checkout --detach FETCH_HEAD
-          test "$(git -C .out/original-tactical-art rev-parse HEAD)" = "730028c707c08438a88be6c5542d70f53cfe5a85"
+          test "$(git -C .out/original-tactical-art rev-parse HEAD)" = "a642615e3f32b909507cf66b0c78ba8e72d31bcb"
           (cd .out/original-tactical-art/rdte/signal-frontier-assets && GO111MODULE=off go test ./... && GO111MODULE=off go run . "$GITHUB_WORKSPACE/.out/asset-atlas")
           test "$(stat -c %s .out/asset-atlas/UNITS/SIGNALRELAY.TAB)" = "2048"
           test -s .out/asset-atlas/UNITS/SIGNALRELAY.PCK
           cp .out/asset-atlas/UNITS/SIGNALRELAY.PCK .out/package/data/SYNTHETIC/UNITS/
           cp .out/asset-atlas/UNITS/SIGNALRELAY.TAB .out/package/data/SYNTHETIC/UNITS/
-          sha256sum .out/package/data/SYNTHETIC/UNITS/SIGNALRELAY.PCK .out/package/data/SYNTHETIC/UNITS/SIGNALRELAY.TAB > .out/evidence/original-32x40-tactical-art.sha256
+          test "$(stat -c %s .out/asset-atlas/TERRAIN/BLANKS.MCD)" = "124"
+          test "$(stat -c %s .out/asset-atlas/TERRAIN/BLANKS.TAB)" = "8"
+          cp .out/asset-atlas/TERRAIN/BLANKS.PCK .out/package/data/SYNTHETIC/TERRAIN/
+          cp .out/asset-atlas/TERRAIN/BLANKS.TAB .out/package/data/SYNTHETIC/TERRAIN/
+          cp .out/asset-atlas/TERRAIN/BLANKS.MCD .out/package/data/SYNTHETIC/TERRAIN/
+          sha256sum .out/package/data/SYNTHETIC/UNITS/SIGNALRELAY.PCK .out/package/data/SYNTHETIC/UNITS/SIGNALRELAY.TAB .out/package/data/SYNTHETIC/TERRAIN/BLANKS.* > .out/evidence/original-32x40-tactical-art.sha256
           printf '%s\n' 'ORIGINAL_ART_SOURCE_ONLY_NO_RETAIL_MEDIA_RENDER_QUALITY_NOT_ACCEPTED' > .out/evidence/original-art-provenance.txt
       - name: Install runtime dependencies (no C++ compilation)
         run: |
@@ -215,6 +220,11 @@ jobs:
           console.log(JSON.stringify(receipt));
           if(!receipt.FirstInventory||!receipt.FirstTurnOverlay||!receipt.FirstBattle||!receipt.SecondTurnOverlay||!receipt.AfterSecondTurn||!receipt.AutomaticThirdNextTurn||fatal)process.exit(1);
           NODE
+      - name: Qualify read-only per-unit enemy action from actual modified engine
+        shell: bash
+        run: |
+          ./.out-inspect --tactical .out/evidence/second-turn-confirm/battle.jsonl .out/evidence/tactical-unit-delta-receipt.json
+          node -e 'const x=require("./.out/evidence/tactical-unit-delta-receipt.json");if(x.GameplayQualified||!x.PlayerObserved||!x.EnemyObserved||!x.HostileFactionTurnObserved||!x.EnemyActionObserved||x.FirstFailure)process.exit(1)'
       - name: Symbolize first native tactical crash using the same verified engine binary
         if: failure()
         shell: bash
