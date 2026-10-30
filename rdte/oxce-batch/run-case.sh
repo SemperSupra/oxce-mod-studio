@@ -9,6 +9,7 @@ cp -a "$package/config" "$target/config"
 chmod 600 "$target/commands.txt"
 OXCE_RDTE_MAILBOX="$PWD/$target/commands.txt" \
 OXCE_RDTE_TRACE="$PWD/$target/trace.jsonl" \
+OXCE_RDTE_BATTLE="$PWD/$target/battle.jsonl" \
 SDL_AUDIODRIVER=dummy "$package/openxcom-sf-rdte" \
  -data "$PWD/$package/data" -user "$PWD/$target/user" -config "$PWD/$target/config" \
  > "$target/engine-stdout.log" 2>&1 &
