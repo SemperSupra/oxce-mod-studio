@@ -178,6 +178,26 @@ func Check(rules,config []byte,root string) Verdict {
   icons,iconErr:=os.Stat(filepath.Join(root,"data","SYNTHETIC","UFOGRAPH","SPICONS.DAT"))
   require(iconErr==nil&&icons.Size()>=2*32*24&&icons.Size()%(32*24)==0,
     "tactical:spicons-at-least-two-frames")
+  // Pinned InventoryState::InventoryState and updateTemplateButtons dereference
+  // five independent named sprite getters, whether or not oxceLinks is visible.
+  for _,spec:=range []struct{kind,file string;w,h int}{
+    {"oxceLinksInv","oxce-links-inventory.png",23,22},
+    {"InvCopy","inv-inv-copy.png",32,22},
+    {"InvPasteEmpty","inv-inv-paste-empty.png",32,22},
+    {"InvCopyActive","inv-inv-copy-active.png",32,22},
+    {"InvPaste","inv-inv-paste.png",32,22},
+  }{
+    require(strings.Contains(sprite,"- type: "+spec.kind+"\n")&&
+      strings.Contains(sprite,"0: multiplayer/"+spec.file+"\n"),"inventory-sprite:"+spec.kind)
+    p:=filepath.Join(root,"data","SYNTHETIC","multiplayer",spec.file)
+    fh,err:=os.Open(p)
+    valid:=false
+    if err==nil {
+      im,e:=png.Decode(fh);fh.Close()
+      if e==nil {typed,ok:=im.(*image.Paletted);valid=ok&&typed.Bounds().Dx()==spec.w&&typed.Bounds().Dy()==spec.h}
+    }
+    require(valid,"inventory-original-indexed-art:"+spec.kind)
+  }
   // Native controls revealed unresolved menu tokens and unreadable briefing text.
   // Check only the original en-US file; other languages require separate font HIL.
   locale,le:=os.ReadFile(filepath.Join(root,"user","mods","rdte-synthetic-master","Language","en-US.yml"))
