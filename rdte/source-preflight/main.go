@@ -153,6 +153,31 @@ func Check(rules,config []byte,root string) Verdict {
     bytes.Equal(marker[:8],[]byte{137,80,78,71,13,10,26,10})&&
     bytes.Equal(marker[16:24],[]byte{0,0,0,27,0,0,0,3})&&len(marker)>=26&&marker[24]==8&&marker[25]==3,
     "original-coop-art:globe-markers-27x3")
+  // Pinned BattlescapeState::BattlescapeState dereferences SPICONS frames
+  // 0 and 1; Touch frames 0..9. The standalone master must create all.
+  sprites:=[]struct{kind string;path string;width,height int;label string}{
+    {"Touch","multiplayer/touch-controls.png",320,24,"original-touch-ten-frames"},
+    {"TinyRanks","multiplayer/tiny-ranks.png",42,7,"original-ranks-six-frames"},
+  }
+  for _,spec:=range sprites {
+    require(strings.Contains(sprite,"- type: "+spec.kind)&&
+      strings.Contains(sprite,"0: "+spec.path),
+      "extraSprites:"+spec.kind)
+    file,err:=os.Open(filepath.Join(root,"data","SYNTHETIC",filepath.FromSlash(spec.path)))
+    valid:=false
+    if err==nil {
+      img,decErr:=png.Decode(file)
+      file.Close()
+      if decErr==nil {
+        typed,ok:=img.(*image.Paletted)
+        valid=ok&&typed.Bounds().Dx()==spec.width&&typed.Bounds().Dy()==spec.height
+      }
+    }
+    require(valid,"original-coop-art:"+spec.label)
+  }
+  icons,iconErr:=os.Stat(filepath.Join(root,"data","SYNTHETIC","UFOGRAPH","SPICONS.DAT"))
+  require(iconErr==nil&&icons.Size()>=2*32*24&&icons.Size()%(32*24)==0,
+    "tactical:spicons-at-least-two-frames")
   // Native controls revealed unresolved menu tokens and unreadable briefing text.
   // Check only the original en-US file; other languages require separate font HIL.
   locale,le:=os.ReadFile(filepath.Join(root,"user","mods","rdte-synthetic-master","Language","en-US.yml"))
