@@ -15,13 +15,13 @@ func validRoot(t *testing.T) string{
   root:=t.TempDir()
   path:=filepath.Join(root,"data","SYNTHETIC","multiplayer")
   if err:=os.MkdirAll(path,0700);err!=nil{t.Fatal(err)}
-  png:=[]byte{137,80,78,71,13,10,26,10,0,0,0,0}
+  basePNG:=[]byte{137,80,78,71,13,10,26,10,0,0,0,0}
   markers:=make([]byte,26)
   copy(markers,[]byte{137,80,78,71,13,10,26,10})
   copy(markers[16:],[]byte{0,0,0,27,0,0,0,3,8,3})
   if err:=os.WriteFile(filepath.Join(path,"globe-markers.png"),markers,0600);err!=nil{t.Fatal(err)}
   for _,name:=range []string{"base.png","avatar.png"} {
-    if err:=os.WriteFile(filepath.Join(path,name),png,0600);err!=nil{t.Fatal(err)}
+    if err:=os.WriteFile(filepath.Join(path,name),basePNG,0600);err!=nil{t.Fatal(err)}
   }
   geo:=filepath.Join(root,"data","SYNTHETIC","GEODATA")
   if err:=os.MkdirAll(geo,0700);err!=nil{t.Fatal(err)}
