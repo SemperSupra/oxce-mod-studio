@@ -47,8 +47,8 @@ jobs:
       - name: Fetch pinned native-independent source-preflight artifact
         uses: actions/download-artifact@v4
         with:
-          name: oxce-source-preflight-40995335634
-          run-id: 40995335634
+          name: oxce-source-preflight-40995947702
+          run-id: 40995947702
           github-token: ${{ github.token }}
           path: .out/source-gate
       - name: Require real negative-controlled source-preflight verdict
@@ -59,10 +59,11 @@ jobs:
         run: |
           git init .out/original-game-rules
           git -C .out/original-game-rules remote add origin https://github.com/SemperSupra/oxce-mod-studio.git
-          git -C .out/original-game-rules fetch --depth 1 origin a3cc230c69285b93b37cdfccd6e4f438f6baefbf
+          git -C .out/original-game-rules fetch --depth 1 origin a28019f1d3d6bc4129ce4673930308ee9d237eb6
           git -C .out/original-game-rules checkout --detach FETCH_HEAD
-          test "$(git -C .out/original-game-rules rev-parse HEAD)" = "a3cc230c69285b93b37cdfccd6e4f438f6baefbf"
+          test "$(git -C .out/original-game-rules rev-parse HEAD)" = "a28019f1d3d6bc4129ce4673930308ee9d237eb6"
           node .out/original-game-rules/rdte/oxce-engine-synthetic/generate.mjs .out/new-rules
+          node .out/original-game-rules/rdte/oxce-engine-synthetic/generate-font.mjs .out/new-rules
           node --check .out/original-game-rules/rdte/oxce-engine-synthetic/generate-legacy.mjs
           node .out/original-game-rules/rdte/oxce-engine-synthetic/generate-legacy.mjs .out/package/data/SYNTHETIC
           test -s .out/package/data/SYNTHETIC/SOUND/gmgeo1.wav
@@ -70,7 +71,9 @@ jobs:
           cp -a .out/new-rules/user/mods/rdte-synthetic-master/SoldierName/. .out/package/user/mods/rdte-synthetic-master/SoldierName/
           cp .out/new-rules/user/mods/rdte-synthetic-master/Ruleset/10-synthetic.rul .out/package/user/mods/rdte-synthetic-master/Ruleset/
           cp .out/new-rules/user/mods/rdte-synthetic-master/Language/en-US.yml .out/package/user/mods/rdte-synthetic-master/Language/
+          cp .out/new-rules/user/mods/rdte-synthetic-master/Language/rdte-fonts.* .out/package/user/mods/rdte-synthetic-master/Language/
           sha256sum .out/package/user/mods/rdte-synthetic-master/Ruleset/10-synthetic.rul > .out/evidence/original-game-rules.sha256
+          sha256sum .out/package/user/mods/rdte-synthetic-master/Language/rdte-fonts.* > .out/evidence/original-fonts.sha256
           sha256sum .out/package/data/SYNTHETIC/SOUND/*.wav .out/package/user/mods/rdte-synthetic-master/SoldierName/*.nam > .out/evidence/original-media-name-ledger.sha256
       - name: Install runtime dependencies (no C++ compilation)
         run: |
