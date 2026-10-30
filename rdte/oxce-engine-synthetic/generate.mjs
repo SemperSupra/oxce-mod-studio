@@ -95,7 +95,7 @@ writeFileSync(join(mod,'Ruleset/10-synthetic.rul'),[
   '    width: 320',
   '    height: 200',
   '    files:',
-  '      0: multiplayer/survey-paperdoll.png'
+  '      0: multiplayer/survey-paperdoll.png',
   'interfaces:',
   '  - type: mainMenu',
   '    backgroundImage: BACK01.SCR',
