@@ -69,6 +69,9 @@ type receipt struct{
  ClientWorldObserved bool
  ModeConsistent bool
  SharedWorldSubsetEqual bool
+ HostClockAdvancedAfterRestart bool
+ ClientClockAdvancedAfterRestart bool
+ ResumedClockEqual bool
  FirstFailure string
  GameplayQualified bool
 }
@@ -175,7 +178,24 @@ func execute(hostPath,clientPath,saveFile,mode string)receipt{
    hg,eh:=host.cmd("geo_state",nil);cg,ec:=client.cmd("geo_state",nil)
    if eh==nil&&ec==nil{
     r.ModeConsistent,r.SharedWorldSubsetEqual=classifyMode(hg,cg,mode)
-    if r.ModeConsistent&&(mode!="shared"||r.SharedWorldSubsetEqual){return r}
+    if r.ModeConsistent&&(mode!="shared"||r.SharedWorldSubsetEqual){
+     beforeHost,_:=json.Marshal(hg["time"]);beforeClient,_:=json.Marshal(cg["time"])
+     if _,e=host.cmd("geo_set_speed",map[string]interface{}{"idx":1});e!=nil{return fail("host-time-speed-after-restart:"+e.Error())}
+     if _,e=client.cmd("geo_set_speed",map[string]interface{}{"idx":1});e!=nil{return fail("client-time-speed-after-restart:"+e.Error())}
+     untilAdvance:=time.Now().Add(8*time.Second)
+     for time.Now().Before(untilAdvance){
+      h,e1:=host.cmd("geo_state",nil);c,e2:=client.cmd("geo_state",nil)
+      if e1==nil&&e2==nil{
+       hb,_:=json.Marshal(h["time"]);cb,_:=json.Marshal(c["time"])
+       r.HostClockAdvancedAfterRestart=string(hb)!=string(beforeHost)
+       r.ClientClockAdvancedAfterRestart=string(cb)!=string(beforeClient)
+       r.ResumedClockEqual=string(hb)==string(cb)
+       if r.HostClockAdvancedAfterRestart&&r.ClientClockAdvancedAfterRestart&&r.ResumedClockEqual{return r}
+      }
+      time.Sleep(250*time.Millisecond)
+     }
+     return fail("fresh-process-native-time-not-advanced-or-diverged")
+    }
    }
   }
   time.Sleep(250*time.Millisecond)
@@ -187,5 +207,5 @@ func main(){
  r:=execute(os.Args[1],os.Args[2],os.Args[3],os.Args[4])
  b,_:=json.MarshalIndent(r,"","  ");if err:=os.WriteFile(os.Args[5],append(b,'\n'),0644);err!=nil{panic(err)}
  fmt.Println(string(b))
- if r.FirstFailure!=""||!r.NewProcessHostsRespond||!r.NativeSaveLoaded||!r.HostIdentityPreserved||r.ResumeLobbyMode!=2||!r.ClientRejoined||!r.ResumeCommandAccepted||!r.NativeHoldReleaseAccepted||!r.HostWorldObserved||!r.ClientWorldObserved||!r.ModeConsistent||(r.Mode=="shared"&&!r.SharedWorldSubsetEqual){os.Exit(1)}
+ if r.FirstFailure!=""||!r.NewProcessHostsRespond||!r.NativeSaveLoaded||!r.HostIdentityPreserved||r.ResumeLobbyMode!=2||!r.ClientRejoined||!r.ResumeCommandAccepted||!r.NativeHoldReleaseAccepted||!r.HostWorldObserved||!r.ClientWorldObserved||!r.ModeConsistent||(r.Mode=="shared"&&!r.SharedWorldSubsetEqual)||!r.HostClockAdvancedAfterRestart||!r.ClientClockAdvancedAfterRestart||!r.ResumedClockEqual{os.Exit(1)}
 }
