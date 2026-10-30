@@ -46,8 +46,27 @@ type Result struct{
  ClientStates []string
  HostDialog map[string]interface{}
  ClientDialog map[string]interface{}
+ HostReleaseExecuted bool
+ ClientHoldReleased bool
+ HostStatesAfterRelease []string
+ ClientStatesAfterRelease []string
+ HostGeoAfterRelease map[string]interface{}
+ ClientGeoAfterRelease map[string]interface{}
  FirstFailure string
  Commands []string
+}
+// Only the actual host campaign-wait dialog may be clicked. The client
+// WAIT buttons are intentionally hidden and clicking them can disconnect.
+func hostReleaseDialog(mode string,d map[string]interface{})bool {
+  wantCode:=float64(60)
+  wantLabel:="BEGIN"
+  if mode=="shared" {wantCode=62;wantLabel="RESUME"} else if mode!="separate" {return false}
+  code,ok:=d["code"].(float64)
+  return ok&&code==wantCode&&d["present"]==true&&d["backVisible"]==true&&d["backText"]==wantLabel
+}
+func includesState(states []string,kind string)bool {
+ for _,s:=range states {if strings.Contains(s,kind){return true}}
+ return false
 }
 // The pinned co-op TestServer reports campaignType 0=Separate, 1=Shared.
 // A separate-campaign base mismatch is not evidence of SHARED replication failure.
@@ -239,6 +258,38 @@ func main(){
  if dialog,err:=client.run(map[string]interface{}{"cmd":"coop_dialog_info"});err==nil {
    r.ClientDialog=dialog
  }else{r.ClientObservation+=" client-dialog:"+err.Error()}
+ // Next native acceptance boundary: use the ACTUAL host BEGIN/RESUME handler
+ // after identifying the exact pinned CoopState dialog. This is not a mere
+ // read-only screen transition and will be tracked separately.
+ if r.FirstFailure!="" {return}
+ if !r.HostWorldObserved||!r.ClientWorldObserved {r.FirstFailure="release-before-worlds-loaded";return}
+ if !hostReleaseDialog(mode,r.HostDialog) {
+   r.FirstFailure=fmt.Sprintf("unexpected-host-release-dialog: %v",r.HostDialog);return
+ }
+ if _,ok:=cmd(host,map[string]interface{}{"cmd":"coop_dialog_back"});!ok{return}
+ r.HostReleaseExecuted=true
+ untilRelease:=time.Now().Add(7*time.Second)
+ for time.Now().Before(untilRelease){
+   hs,he:=host.states();cs,ce:=client.states()
+   if he!=nil||ce!=nil {r.ClientObservation+=" release-state-read-error";break}
+   r.HostStatesAfterRelease=hs;r.ClientStatesAfterRelease=cs
+   r.HostStrategicReady=includesState(hs,"GeoscapeState")&&!includesState(hs,"CoopState")
+   r.ClientStrategicReady=includesState(cs,"GeoscapeState")&&!includesState(cs,"CoopState")
+   if r.HostStrategicReady&&r.ClientStrategicReady {r.ClientHoldReleased=true;break}
+   time.Sleep(200*time.Millisecond)
+ }
+ if !r.ClientHoldReleased {r.FirstFailure=fmt.Sprintf("campaign-hold-not-released: host=%v client=%v",r.HostStatesAfterRelease,r.ClientStatesAfterRelease);return}
+ for _,pair:=range []struct{c *Client;out *map[string]interface{}}{
+   {host,&r.HostGeoAfterRelease},{client,&r.ClientGeoAfterRelease},
+ }{
+   state,err:=pair.c.run(map[string]interface{}{"cmd":"geo_state"})
+   if err!=nil {r.FirstFailure=pair.c.name+"-geo-after-resume: "+err.Error();return}
+   *pair.out=map[string]interface{}{"time":state["time"],"funds":state["funds"],"campaignType":state["campaignType"],"bases":state["bases"]}
+ }
+ if mode=="shared" {
+   h,_:=json.Marshal(r.HostGeoAfterRelease);c,_:=json.Marshal(r.ClientGeoAfterRelease)
+   if string(h)!=string(c) {r.FirstFailure="shared-geo-diverged-after-resume";return}
+ }
  // Still no shared world checksum or tactical turn-by-turn equivalence.
  // Distinct single-player saves in a co-op lobby are not proof of sync.
  // A host base in a real save is NOT proof of synchronized campaign,
