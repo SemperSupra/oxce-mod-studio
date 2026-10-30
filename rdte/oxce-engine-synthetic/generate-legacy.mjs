@@ -72,6 +72,9 @@ function originalSpriteSheet(w,h,cellW,cellH){
 put('multiplayer/globe-markers.png',originalSpriteSheet(27,3,3,3));
 put('multiplayer/touch-controls.png',originalSpriteSheet(320,24,32,24));
 put('multiplayer/tiny-ranks.png',originalSpriteSheet(42,7,7,7));
+// The independently authored armor must have spriteInv: it is an unguarded
+// getSurface(...) fallthrough during InventoryState::init for human units.
+put('multiplayer/survey-paperdoll.png',originalSpriteSheet(320,200,40,70));
 put('multiplayer/oxce-links-inventory.png',originalSpriteSheet(23,22,23,22));
 for(const name of ['InvCopy','InvPasteEmpty','InvCopyActive','InvPaste']){
   const id=name.replace(/([a-z])([A-Z])/g,'$1-$2').toLowerCase();
