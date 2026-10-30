@@ -37,7 +37,7 @@ for(let index=0;index<chars.length;index++){
  const c=chars[index],map=glyphs[c]||glyphs[c.toUpperCase()]||glyphs['?'];
  const cx=(index%16)*8,cy=Math.floor(index/16)*12;
  for(let y=0;y<7;y++)for(let x=0;x<5;x++){
-  if((map[y]>>(4-x))&1)pixels[(cy+y+2)*(W+1)+cx+x+2+1]=index%2?2:1;
+  if((map[y]>>(4-x))&1)pixels[(cy+y+2)*(W+1)+cx+x+2+1]=1; // uniform visible foreground; alternate index 2 is near-black in native UI palettes
  }
 }
 const ct=Array.from({length:256},(_,i)=>{let c=i;for(let j=0;j<8;j++)c=(c&1)?(0xedb88320^(c>>>1)):(c>>>1);return c>>>0;});
