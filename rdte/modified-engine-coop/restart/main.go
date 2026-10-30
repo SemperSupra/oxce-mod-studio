@@ -110,8 +110,10 @@ func execute(hostPath,clientPath,saveFile,mode string)receipt{
  if _,e=client.cmd("profile_ok",nil);e!=nil{return fail("client-profile-accept:"+e.Error())}
  // A join may also generate a host profile modal; close it if present.
  if states,e:=host.cmd("get_state",nil);e==nil{
-  for _,s:=range states["states"].([]interface{}){
-   if strings.Contains(fmt.Sprint(s),"Profile"){if _,e=host.cmd("profile_ok",nil);e!=nil{return fail("host-profile:"+e.Error())};break}
+  if hostStates,ok:=states["states"].([]interface{});ok{
+   for _,s:=range hostStates{
+    if strings.Contains(fmt.Sprint(s),"Profile"){if _,e=host.cmd("profile_ok",nil);e!=nil{return fail("host-profile:"+e.Error())};break}
+   }
   }
  }
  eligible:=false;until:=time.Now().Add(12*time.Second)
@@ -127,8 +129,20 @@ func execute(hostPath,clientPath,saveFile,mode string)receipt{
  for time.Now().Before(until){
   hs,eh:=host.cmd("get_state",nil);cs,ec:=client.cmd("get_state",nil)
   if eh==nil&&ec==nil{
-   for _,s:=range hs["states"].([]interface{}){if strings.Contains(fmt.Sprint(s),"GeoscapeState"){r.HostWorldObserved=true}}
-   for _,s:=range cs["states"].([]interface{}){if strings.Contains(fmt.Sprint(s),"GeoscapeState"){r.ClientWorldObserved=true}}
+   hostReady,clientReady:=false,false
+   if hstates,ok:=hs["states"].([]interface{});ok {
+    for _,s:=range hstates{
+     if strings.Contains(fmt.Sprint(s),"GeoscapeState"){hostReady=true}
+     if strings.Contains(fmt.Sprint(s),"CoopState")||strings.Contains(fmt.Sprint(s),"LobbyMenu"){hostReady=false;break}
+    }
+   }
+   if cstates,ok:=cs["states"].([]interface{});ok {
+    for _,s:=range cstates{
+     if strings.Contains(fmt.Sprint(s),"GeoscapeState"){clientReady=true}
+     if strings.Contains(fmt.Sprint(s),"CoopState")||strings.Contains(fmt.Sprint(s),"LobbyMenu"){clientReady=false;break}
+    }
+   }
+   r.HostWorldObserved=hostReady;r.ClientWorldObserved=clientReady
   }
   if r.HostWorldObserved&&r.ClientWorldObserved{
    hg,eh:=host.cmd("geo_state",nil);cg,ec:=client.cmd("geo_state",nil)
