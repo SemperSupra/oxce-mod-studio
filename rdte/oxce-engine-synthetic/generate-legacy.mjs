@@ -106,11 +106,16 @@ const blankSpk=Buffer.from([255,255,0,125]);
 for(const name of ['TAC01.SCR','DETBORD.PCK','DETBORD2.PCK','ICONS.PCK','MEDIBORD.PCK','SCANBORD.PCK','UNIBORD.PCK'])put('UFOGRAPH/'+name,blankSpk);
 blankPck('TERRAIN','BLANKS',512);
 // Independently authored minimal two-record MCD required by pinned OXCE reader.
-put('TERRAIN/BLANKS.MCD',Buffer.alloc(2*62));
-// Source-derived synthetic 10x10x1 map using object 1 as its ground tile.
+// Preserve BLANKS object 0 (blank) and 1 (scorched). A distinct
+// object 2 is walkable START_POINT floor, needed for stock XCOM placement.
+const sfMcd=Buffer.alloc(3*62);
+sfMcd[2*62+39]=4;sfMcd[2*62+40]=4;sfMcd[2*62+41]=4;
+sfMcd[2*62+53]=0;sfMcd[2*62+59]=1;
+put('TERRAIN/BLANKS.MCD',sfMcd);
+// Source-derived synthetic 10x10x1 map using object 2 as its ground tile.
 const sfMap=Buffer.alloc(403);
 sfMap[0]=10;sfMap[1]=10;sfMap[2]=1;
-for(let tile=0;tile<100;tile++)sfMap[3+tile*4]=1;
+for(let tile=0;tile<100;tile++)sfMap[3+tile*4]=2;
 put('MAPS/SFREL00.MAP',sfMap);
 // Source-derived original 24-byte route-node records (no commercial maps).
 const sfRoutes=Buffer.alloc(96);
