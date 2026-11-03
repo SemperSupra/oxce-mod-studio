@@ -30,12 +30,19 @@ function check(mc,mp,rr,rm) {
   const refs=[...rr.matchAll(/- name: SFREL00\b/g)];
   assert.equal(blocks.length,2,'craft and terrain mapBlocks both require explicit height 1');
   assert.equal(refs.length,2,'unexpected number of SFREL00 mapBlocks');
-  assert.equal(rm.length,4*24,'expected four source-only route nodes');
-  for(let i=0;i<4;i++){
+  assert.equal(rm.length,6*24,'four spawn anchors plus two patrol-only waypoints');
+  for(let i=0;i<6;i++){
     assert.equal(rm[i*24+20],i<2?1:0,`node ${i} rank`);
-    assert.equal(rm[i*24+23],1,`node ${i} positive spawn weight`);
+    assert.equal(rm[i*24+23],i<4?1:0,`node ${i} spawn weight`);
+    assert.equal(rm[i*24+21],i>=2?1:0,`node ${i} patrol desirability`);
   }
-  return {mcdRecords:3,mapTiles:100,mapBlocks:2,rmpNodes:4};
+  for(const hostile of [2,3]) {
+    const start=rm.subarray(hostile*24,(hostile+1)*24);
+    const destinations=Array.from({length:5},(_,k)=>start[4+3*k]);
+    assert.ok(destinations.some(id=>id>=4&&id<6&&rm[id*24+23]===0&&rm[id*24+21]>0),
+      `hostile ${hostile} lacks linked vacant patrol-only waypoint`);
+  }
+  return {mcdRecords:3,mapTiles:100,mapBlocks:2,rmpNodes:6,patrolOnlyNodes:2};
 }
 function mustReject(name,fn){assert.throws(fn,assert.AssertionError,`negative ${name} must reject`);}
 const positive=check(mcd,map,rules,rmp);
@@ -48,4 +55,8 @@ mustReject('map references scorched slot',()=>check(mcd,swapped,rules,rmp));
 mustReject('missing block height',()=>check(mcd,map,rules.replace('height: 1','height: 4'),rmp));
 const badWeight=Buffer.from(rmp);badWeight[23]=0;
 mustReject('zero spawn priority',()=>check(mcd,map,rules,badWeight));
-console.log(JSON.stringify({result:'PASS',scope:'generated public synthetic source-only preconditions',positive,negativeMutations:5,nativeGameQualified:false},null,2));
+const spawnedWaypoint=Buffer.from(rmp);spawnedWaypoint[4*24+23]=1;
+mustReject('patrol-only node can spawn',()=>check(mcd,map,rules,spawnedWaypoint));
+const lostPatrol=Buffer.from(rmp);for(let k=0;k<5;k++)lostPatrol[2*24+4+3*k]=255;
+mustReject('hostile lost vacant patrol target',()=>check(mcd,map,rules,lostPatrol));
+console.log(JSON.stringify({result:'PASS',scope:'generated public synthetic source-only preconditions',positive,negativeMutations:7,nativeGameQualified:false},null,2));
