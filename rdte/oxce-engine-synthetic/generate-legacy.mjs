@@ -118,14 +118,23 @@ sfMap[0]=10;sfMap[1]=10;sfMap[2]=1;
 for(let tile=0;tile<100;tile++)sfMap[3+tile*4]=2;
 put('MAPS/SFREL00.MAP',sfMap);
 // Source-derived original 24-byte route-node records (no commercial maps).
-const sfRoutes=Buffer.alloc(96);
-for(let n=0;n<4;n++){
-  const b=n*24;
-  sfRoutes[b]=2+n;
-  sfRoutes[b+1]=2+n;
+// Four occupied spawn anchors plus two original, *non-spawning* patrol points.
+// Stock getPatrolNode rejects occupied destinations and non-scout link ID 0.
+const sfPositions=[[2,2],[3,3],[4,4],[5,5],[7,4],[7,7]];
+const sfLinks=[[1],[0,2],[1,3,4],[2,5],[2,5],[3,4]];
+const sfRoutes=Buffer.alloc(sfPositions.length*24);
+for(let n=0;n<sfPositions.length;n++){
+  const b=n*24, [x,y]=sfPositions[n];
+  sfRoutes[b]=y;sfRoutes[b+1]=x;
   for(let k=0;k<5;k++)sfRoutes[b+4+k*3]=255;
+  for(let k=0;k<sfLinks[n].length;k++){
+    const dst=sfLinks[n][k], [tx,ty]=sfPositions[dst];
+    sfRoutes[b+4+k*3]=dst;
+    sfRoutes[b+5+k*3]=Math.abs(x-tx)+Math.abs(y-ty);
+  }
   sfRoutes[b+20]=n<2?1:0;
-  sfRoutes[b+23]=1;
+  sfRoutes[b+21]=n>=2?1:0;
+  sfRoutes[b+23]=n<4?1:0;
 }
 put('ROUTES/SFREL00.RMP',sfRoutes);
 
