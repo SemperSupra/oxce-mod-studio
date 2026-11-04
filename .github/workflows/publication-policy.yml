@@ -23,6 +23,7 @@ on:
       - 'release-policy.json'
       - 'packages/weapon-editor/**'
       - 'spikes/ruleset-tools-web/**'
+      - 'examples/mvp-weapon-mod/**'
       - 'promotion-manifest.json'
       - '.github/workflows/publication-policy.yml'
       - '.github/workflows/weapon-editor-public.yml'
@@ -172,6 +173,10 @@ jobs:
               'publisher queue is not cancel-and-rewind': 'cancel-in-progress: false',
               'branch freshness check': 'git ls-remote origin refs/heads/semper/weapon-editor-exp',
               'release-control self-change refusal': 'Candidate changes release-control file',
+              'stable-lineage workflow is release control': '|.github/workflows/stable-candidate-lineage.yml|',
+              'negative-proof workflow is release control': '|.github/workflows/verify-no-publication-mutation.yml|',
+              'negative-proof verifier is release control': '|.github/scripts/verify-rolling-release-state.mjs|',
+              'negative-proof baseline is release control': '|.github/evidence/72-pre-hardening-rolling-state.json)',
               'pre-mutation freshness recheck': 'Recheck current branch tip before mutation',
               'publisher push-only guard': "if: github.event_name == 'push' && github.ref == 'refs/heads/semper/weapon-editor-exp' && needs.verify-promotion-lineage.outputs.authorized == 'true'",
           }
@@ -201,6 +206,9 @@ jobs:
               'no persisted checkout credentials': 'persist-credentials: false',
               'current-main direct parent': 'does not equal current PR main base',
               'stable release-control refusal': 'Stable candidate changes release-control file',
+              'negative-proof workflow is stable release control': '|.github/workflows/verify-no-publication-mutation.yml|',
+              'negative-proof verifier is stable release control': '|.github/scripts/verify-rolling-release-state.mjs|',
+              'negative-proof baseline is stable release control': '|.github/evidence/72-pre-hardening-rolling-state.json)',
               'strict receipt verification': 'Verify exact governed stable-candidate lineage',
           }
           missing_stable = [name for name, marker in required_stable_controls.items() if marker not in stable_workflow]
