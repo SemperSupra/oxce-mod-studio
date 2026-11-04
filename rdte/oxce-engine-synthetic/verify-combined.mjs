@@ -47,6 +47,10 @@ function index(root) {
       if (!entry.isFile()) throw Error(`nonregular synthetic output: ${absolute}`);
       const rel = path.relative(root, absolute).split(path.sep).join('/');
       if (/^(?:data\/(?:UFO|TFTD)(?:\/|$)|user\/mods\/(?:xcom1|xcom2)(?:\/|$))/i.test(rel)) throw Error(`commercial game path present: ${rel}`);
+      // A deterministic but unlisted output is not admitted merely for being original-looking.
+      if (!(rel === 'config/options.cfg' || rel.startsWith('user/mods/rdte-synthetic-master/') || rel.startsWith('data/SYNTHETIC/'))) {
+        throw Error(`unadmitted synthetic output path: ${rel}`);
+      }
       const bytes = fs.readFileSync(absolute);
       files.push({ path: rel, size: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') });
     }
