@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { verify } from './verify-combined.mjs';
 
-function setup(t,{drift=false,missing=false,retail=false,exitFailure=false}={}){
+function setup(t,{drift=false,missing=false,retail=false,unrelated=false,exitFailure=false}={}){
  const base=fs.mkdtempSync(path.join(os.tmpdir(),'sf-combined-stub-'));
  t.after(()=>fs.rmSync(base,{recursive:true,force:true}));
  const scripts=path.join(base,'scripts');fs.mkdirSync(scripts);
@@ -24,6 +24,7 @@ function setup(t,{drift=false,missing=false,retail=false,exitFailure=false}={}){
   ${missing?'':"put('MAPS/SFREL00.MAP','MAP');"}
   put('ROUTES/SFREL00.RMP','RMP');put('TERRAIN/BLANKS.MCD','MCD');
   ${retail?"put('../UFO/retail.bin','INVALID');":''}
+  ${unrelated?"put('../OTHER/unreviewed-asset.bin','UNADMITTED');":''}
   for(let i=0;i<76;i++)put('SOUND/f'+i+'.wav',${drift?'Math.random().toString()':"'synthetic'"});
  `);
  for(const name of ['test-generated-master.mjs','test-generated-font.mjs','test-stock-spawn-prerequisites.mjs','test-generated-legacy.mjs'])write(name,exitFailure&&name==='test-generated-font.mjs'?'process.exit(7);':'console.log("PASS");');
@@ -47,4 +48,9 @@ test('unexpected commercial game path is a hard failure',async t=>{
 });
 test('first generator/regression failure is preserved',async t=>{
  const {scripts,base}=setup(t,{exitFailure:true});await assert.rejects(verify({workdir:base,scriptsDir:scripts}),/test-generated-font\.mjs: exit=7/);
+});
+
+test('unrelated deterministic output root is a hard failure',async t=>{
+ const {scripts,base}=setup(t,{unrelated:true});
+ await assert.rejects(verify({workdir:base,scriptsDir:scripts}),/unadmitted synthetic output path: data\/OTHER\/unreviewed-asset\.bin/);
 });
