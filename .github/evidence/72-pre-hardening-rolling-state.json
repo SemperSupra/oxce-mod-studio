@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "kind": "oxce-mod-studio-rolling-release-state",
+  "capturedFor": "private issue #72 negative publication proof",
+  "repository": "SemperSupra/oxce-mod-studio",
+  "tag": "studio-exp-current",
+  "tagCommitSha": "3a3d46262e8e01e41ceea5f096fc5fff3f5323d2",
+  "release": {
+    "id": 374912519,
+    "tagName": "studio-exp-current",
+    "targetCommitish": "main",
+    "name": "UNOFFICIAL — OXCE Mod Studio Experimental Weapon Editor",
+    "draft": false,
+    "prerelease": true,
+    "immutable": false,
+    "createdAt": "2026-08-23T12:37:27Z",
+    "updatedAt": "2026-08-23T12:39:33Z",
+    "publishedAt": "2026-08-22T11:33:18Z",
+    "bodySha256": "8f5bb391fe10bbf7754ae6851ff189224224982580acad6a9cc282b1c5521a12"
+  },
+  "assets": [
+    {
+      "id": 526200335,
+      "name": "experimental-build-manifest.json",
+      "size": 1199,
+      "digest": "sha256:4a63a63f27d34698861b9e5a9e673fb7db956344862aa25b226f930251301ac0",
+      "createdAt": "2026-08-23T12:39:33Z",
+      "updatedAt": "2026-08-23T12:39:33Z"
+    },
+    {
+      "id": 526200334,
+      "name": "oxce-mod-studio-experimental-0.0.1-g3a3d4626-source.zip",
+      "size": 41717,
+      "digest": "sha256:cf9cc80285af7a550d6c716f780d968e29a298db901b1d793d65eb6e11996c53",
+      "createdAt": "2026-08-23T12:39:33Z",
+      "updatedAt": "2026-08-23T12:39:33Z"
+    },
+    {
+      "id": 526200336,
+      "name": "oxce-mod-studio-experimental-0.0.1-g3a3d4626.vsix",
+      "size": 58135,
+      "digest": "sha256:2b4e0c2b285e37ab05bd09f3b905678da7c8826987a46785d133d759f78bd4ca",
+      "createdAt": "2026-08-23T12:39:33Z",
+      "updatedAt": "2026-08-23T12:39:33Z"
+    },
+    {
+      "id": 526200339,
+      "name": "SHA256SUMS.txt",
+      "size": 337,
+      "digest": "sha256:e1ab620018911e3de84229a933264b1d9f9b04eb8c488e2a55075c9c1a265d8e",
+      "createdAt": "2026-08-23T12:39:33Z",
+      "updatedAt": "2026-08-23T12:39:33Z"
+    }
+  ]
+}

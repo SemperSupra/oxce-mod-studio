@@ -1,0 +1,56 @@
+name: Validate public license policy
+
+on:
+  push:
+    branches:
+      - semper/weapon-editor-exp
+    paths:
+      - 'LICENSE'
+      - 'NOTICE'
+      - 'THIRD_PARTY_NOTICES'
+      - 'release-policy.json'
+      - 'packages/weapon-editor/package.json'
+      - 'packages/weapon-editor/LICENSE'
+      - 'packages/weapon-editor/NOTICE'
+      - 'packages/weapon-editor/THIRD_PARTY_NOTICES'
+      - '.github/scripts/verify-release-rights.mjs'
+      - '.github/workflows/license-policy.yml'
+      - '.github/workflows/weapon-editor-public.yml'
+  pull_request:
+    paths:
+      - 'LICENSE'
+      - 'NOTICE'
+      - 'THIRD_PARTY_NOTICES'
+      - 'release-policy.json'
+      - 'packages/weapon-editor/package.json'
+      - 'packages/weapon-editor/LICENSE'
+      - 'packages/weapon-editor/NOTICE'
+      - 'packages/weapon-editor/THIRD_PARTY_NOTICES'
+      - '.github/scripts/verify-release-rights.mjs'
+      - '.github/workflows/license-policy.yml'
+      - '.github/workflows/weapon-editor-public.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-license-policy:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact public candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate Apache-2.0 release-rights contract
+        run: node .github/scripts/verify-release-rights.mjs
+
+      - name: Verify receipt-authorized publication also requires strict package rights
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq "Verify authorized candidate Apache release rights" .github/workflows/weapon-editor-public.yml
+          grep -Fq "verify-release-rights.mjs --require-package" .github/workflows/weapon-editor-public.yml
+          grep -Fq "LICENSE|NOTICE|THIRD_PARTY_NOTICES|release-policy.json" .github/workflows/weapon-editor-public.yml
