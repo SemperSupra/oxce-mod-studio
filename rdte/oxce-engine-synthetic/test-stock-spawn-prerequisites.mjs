@@ -52,7 +52,12 @@ const blocked=Buffer.from(mcd);blocked[2*62+39]=255;
 mustReject('nonwalkable start floor',()=>check(blocked,map,rules,rmp));
 const swapped=Buffer.from(map);swapped[3]=1;
 mustReject('map references scorched slot',()=>check(mcd,swapped,rules,rmp));
-mustReject('missing block height',()=>check(mcd,map,rules.replace('height: 1','height: 4'),rmp));
+// Scope the mutation to an actual SFREL00 mapBlock, not an unrelated height.
+const sfrelHeight = /(- name: SFREL00\s+width: 10\s+length: 10\s+)height: 1/;
+assert.match(rules,sfrelHeight,'expected SFREL00 mapBlock height fixture');
+const badBlockHeight = rules.replace(sfrelHeight,'$1height: 4');
+assert.notEqual(badBlockHeight,rules,'negative mutation must change source');
+mustReject('missing block height',()=>check(mcd,map,badBlockHeight,rmp));
 const badWeight=Buffer.from(rmp);badWeight[23]=0;
 mustReject('zero spawn priority',()=>check(mcd,map,rules,badWeight));
 const spawnedWaypoint=Buffer.from(rmp);spawnedWaypoint[4*24+23]=1;
