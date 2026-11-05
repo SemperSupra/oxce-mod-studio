@@ -20,9 +20,24 @@ The capability catalog contains ten source-verified legacy TestServer operation
 names but does not execute them or authenticate their caller. Actual native
 host/client tests, wildcard listener isolation, and human review are separate.
 
-`tools/native_gate.py` inspects local ELF binary/runtime dependencies without
-starting the game. It blocks when libraries are absent; use original supported
-packages on an admitted compatible CI worker rather than creating fake ABI shims.
+`tools/native_gate.py` performs a **nonexecuting source-level direct ELF
+DT_NEEDED inspection** against a SHA256-bound open file descriptor, using trusted
+`readelf` and the host's `ldconfig -p` cache. It never invokes `ldd` or the
+target ELF/interpreter, and checks for path/inode/content drift. A missing SONAME
+in that cache blocks direct-dependency admission. A positive result now reports
+`oxce.native-readiness.v2 / DIRECT_DEPS_IN_HOST_CACHE`, **not** v1
+`RUNTIME_DEPS_READY`: transitive dependencies, RPATH, actual dynamic loading,
+headless SDL runtime, network containment and gameplay are all independently
+unverified. Use original supported libraries on a separately admitted compatible
+worker; never fake ABI compatibility with symlinks.
+
+B45 source regression: 13/13 offline unit tests PASS, including hash/symlink,
+rename-after-hash, in-place mutation, timeout, parser error, no-import and host
+cache-miss negatives. Nonexecuting direct-import check of local pinned `/bin/ls`
+returned `DIRECT_DEPS_IN_HOST_CACHE` with `native_launched=false`. This is NOT
+a new native OXCE game run or public GitHub Actions dispatch. Exact source/test
+blobs are in this existing DRAFT PR; original first failure and previous
+historical native evidence are preserved.
 
 ## Security and provenance
 
