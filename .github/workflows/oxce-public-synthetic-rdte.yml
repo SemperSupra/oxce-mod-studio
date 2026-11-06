@@ -29,9 +29,11 @@ jobs:
           persist-credentials: false
           fetch-depth: 2
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Test whole-PR engine-input selection and negative controls
+      - name: Test whole-PR selector and native-classifier negative controls
         shell: bash
-        run: python3 rdte/oxce-engine-synthetic/engine_selector.py --self-test
+        run: |
+          python3 rdte/oxce-engine-synthetic/engine_selector.py --self-test
+          node --test rdte/oxce-engine-synthetic/classify.test.mjs
       - id: diff
         name: Check entire source-closure diff against pinned PR base, not just last commit
         shell: bash
