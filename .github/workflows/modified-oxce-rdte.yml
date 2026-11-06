@@ -125,14 +125,14 @@ jobs:
           echo "Technical build only: NOT a multiplayer or accessibility-complete release." >> "$GITHUB_STEP_SUMMARY"
       - name: Upload technical preview package
         if: success()
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5 Node24
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6 Node24
         with:
           name: modified-oxce-tech-preview-${{ github.run_id }}
           path: .out/signal-frontier-modified-oxce-linux-x86_64-TECH-PREVIEW.tar.gz
           retention-days: 30
       - name: Upload original native evidence even on first failure
         if: always()
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5 Node24
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6 Node24
         with:
           name: modified-oxce-evidence-${{ github.run_id }}
           path: .out/modified-evidence/
