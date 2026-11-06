@@ -17,7 +17,7 @@ function verify(root) {
   const manifest = JSON.parse(read('rdte/synthetic-legacy-manifest.json'));
   assert.equal(manifest.originalCommercialAssets, false);
   assert.equal(manifest.engineCompatibilityVerified, false);
-  assert.equal(manifest.files.length, 77);
+  assert.equal(manifest.files.length, 79);
   for (const file of manifest.files) {
     check(!path.isAbsolute(file.path) && !file.path.includes('..'), 'unsafe asset path');
     const data = read(file.path);
@@ -65,6 +65,37 @@ function verify(root) {
     assert.equal(wav.readUInt32LE(24),22050);
     assert.equal(wav.readUInt32LE(40),88200);
   }
+  // Real OXCE CatFile.cpp reads a {offset,size} LE table; for SAMPLE.CAT
+  // SoundSet::loadCatByIndex consumes one-byte name length + name, then RIFF.
+  // Exact source bytes are generated here, not copied from UFO/TFTD retail.
+  function assertSyntheticCat(catName,label) {
+    const cat=read('SOUND/'+catName+'.CAT');
+    function decode(b) {
+      assert.ok(b.length>60);
+      const offset=b.readUInt32LE(0);
+      assert.equal(offset,8); // exactly one index entry
+      const n=b[offset];
+      assert.ok(n>0 && n<64 && offset+1+n+44<=b.length);
+      assert.equal(b.toString('ascii',offset+1,offset+1+n),label);
+      const pos=offset+1+n;
+      assert.equal(b.readUInt32LE(4),b.length-pos); // SAMPLE: wav size only
+      assert.equal(b.toString('ascii',pos,pos+4),'RIFF');
+      assert.equal(b.toString('ascii',pos+8,pos+12),'WAVE');
+      assert.equal(b.readUInt32LE(pos+24),22050);
+      assert.equal(b.readUInt32LE(pos+40),88200);
+      assert.equal(b.readUInt32LE(pos+4)+8,b.length-pos);
+    }
+    decode(cat);
+    const badOffset=Buffer.from(cat);badOffset.writeUInt32LE(0,0);
+    const badSize=Buffer.from(cat);badSize.writeUInt32LE(1,4);
+    const badName=Buffer.from(cat);badName[8]=255;
+    const badRiff=Buffer.from(cat);badRiff.write('NOPE',9+label.length);
+    const badWave=Buffer.from(cat);badWave.write('NOPE',9+label.length+8);
+    for(const bad of [badOffset,badSize,badName,badRiff,badWave])
+      assert.throws(()=>decode(bad),'must reject corrupted CAT header/name/WAV');
+  }
+  assertSyntheticCat('SAMPLE','SF-GEO');
+  assertSyntheticCat('SAMPLE2','SF-BATTLE');
   return {files:manifest.files.length,manifest:hash(read('rdte/synthetic-legacy-manifest.json')),mcd:hash(mcd),map:hash(map),rmp:hash(rmp)};
 }
 try {

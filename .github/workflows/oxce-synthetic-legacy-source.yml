@@ -1,0 +1,37 @@
+name: Original-only synthetic legacy format source tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'rdte/oxce-engine-synthetic/generate-legacy.mjs'
+      - 'rdte/oxce-engine-synthetic/test-generated-legacy.mjs'
+      - '.github/workflows/oxce-synthetic-legacy-source.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oxce-synthetic-legacy-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-format:
+    name: Synthetic CAT/MAP/MCD/RMP/PCK/TAB generator and corruption tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact public PR source without credentials
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5 Node24
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify source generator, twice generated, full hashes and hostile controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check rdte/oxce-engine-synthetic/generate-legacy.mjs
+          node --check rdte/oxce-engine-synthetic/test-generated-legacy.mjs
+          node rdte/oxce-engine-synthetic/test-generated-legacy.mjs
+          echo 'SOURCE_GENERATOR_QUALIFIED_NOT_NATIVE_GAMEPLAY; no retail source or release' >> "$GITHUB_STEP_SUMMARY"

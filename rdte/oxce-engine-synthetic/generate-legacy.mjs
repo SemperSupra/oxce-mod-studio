@@ -162,6 +162,23 @@ function sfScore(hz) {
 }
 for(const [name,hz] of [['gmgeo1',196],['gminter',277],['gmtactic1',147],['gmenbase',220]])
  put('SOUND/'+name+'.wav',sfScore(hz));
+// Pinned OXCE 8.6.5 Mod::loadSounds chooses SAMPLE.CAT/SAMPLE2.CAT for
+// GEO.CAT/BATTLE.CAT when soundDefs are absent. Generate first-party PCM
+// RIFF records in original Win CAT's index+name convention, never retail bytes.
+// In SAMPLE.CAT the declared record size omits the single name-length byte
+// and name; native CatFile obtains actual byte span from adjacent offsets.
+function syntheticWavCat(label,wav) {
+ const name=Buffer.from(label,'ascii');
+ if(name.length<1||name.length>255||wav.length<44||
+    wav.toString('ascii',0,4)!=='RIFF'||
+    wav.toString('ascii',8,12)!=='WAVE')throw new Error('bad original synthetic PCM fixture');
+ const table=Buffer.alloc(8);
+ table.writeUInt32LE(8,0);
+ table.writeUInt32LE(wav.length,4);
+ return Buffer.concat([table,Buffer.from([name.length]),name,wav]);
+}
+put('SOUND/SAMPLE.CAT',syntheticWavCat('SF-GEO',sfScore(196)));
+put('SOUND/SAMPLE2.CAT',syntheticWavCat('SF-BATTLE',sfScore(147)));
 const manifest={kind:'artificial-legacy-binary-placeholders',originalCommercialAssets:false,engineCompatibilityVerified:false,files:made};
 mkdirSync(join(root,'rdte'),{recursive:true});
 writeFileSync(join(root,'rdte/synthetic-legacy-manifest.json'),JSON.stringify(manifest,null,2)+'\n');
