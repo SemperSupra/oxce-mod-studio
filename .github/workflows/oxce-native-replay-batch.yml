@@ -9,17 +9,17 @@ permissions:
   actions: read
 concurrency:
   group: oxce-native-batch-${{ github.event.pull_request.number }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   independent-replay:
     runs-on: ubuntu-22.04
     timeout-minutes: 12
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5 node24
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6 node24
         with:
           go-version: '1.23'
           cache: false
@@ -28,16 +28,16 @@ jobs:
           cd rdte/oxce-batch
           GO111MODULE=off go test ./...
           GO111MODULE=off go build -o "$GITHUB_WORKSPACE/.out-inspect" inspect.go telemetry.go
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7 node24
         with:
-          name: modified-oxce-tech-preview-41020431721
-          run-id: 41020431721
+          name: modified-oxce-tech-preview-42300539689
+          run-id: 42300539689
           github-token: ${{ github.token }}
           path: .out/download
       - name: Verify immutable executable before testing
         run: |
           mkdir -p .out/package .out/evidence
-          echo '6f94eb6175ac4a2d2ba81afece408ad673e2620672b009644dd2d90d482f2849  .out/download/signal-frontier-modified-oxce-linux-x86_64-TECH-PREVIEW.tar.gz' | sha256sum -c
+          echo '7cbf9b83e5dcb880a5f5243b033fe28708060b887f3cfa421bdd110713c78149  .out/download/signal-frontier-modified-oxce-linux-x86_64-TECH-PREVIEW.tar.gz' | sha256sum -c
           tar -C .out/package -xzf .out/download/signal-frontier-modified-oxce-linux-x86_64-TECH-PREVIEW.tar.gz
           test -x .out/package/openxcom-sf-rdte
           test -f .out/package/LICENSE-OXCE-GPL3.txt
@@ -48,10 +48,10 @@ jobs:
           test ! -e .out/package/data/TFTD
           sha256sum .out/package/openxcom-sf-rdte > .out/evidence/engine-sha256.txt
       - name: Fetch pinned native-independent source-preflight artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7 node24
         with:
-          name: oxce-source-preflight-41008484728
-          run-id: 41008484728
+          name: oxce-source-preflight-42301416440
+          run-id: 42301416440
           github-token: ${{ github.token }}
           path: .out/source-gate
       - name: Require real negative-controlled source-preflight verdict
@@ -242,10 +242,10 @@ jobs:
             echo 'NO_SIGSEGV_STACK_CAPTURED; diagnostic remains open'
           fi
       - name: Upload original native receipts even on failed scenario
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6 node24
         if: always()
         with:
           name: oxce-native-batch-${{ github.run_id }}
           path: .out/evidence/
-          retention-days: 7
+          retention-days: 30
           if-no-files-found: warn
