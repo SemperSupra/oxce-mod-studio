@@ -28,7 +28,7 @@ func parseTacticalFrames(raw []byte)([]TacticalFrame,int){
  scanner:=bufio.NewScanner(bytes.NewReader(raw));scanner.Buffer(make([]byte,4096),4*1024*1024)
  for scanner.Scan(){
   var f TacticalFrame
-  if json.Unmarshal(scanner.Bytes(),&f)!=nil||f.Event!="battle-snapshot"||f.Turn<1||len(f.Units)==0{invalid++;continue}
+  if json.Unmarshal(scanner.Bytes(),&f)!=nil||f.Event!="battle-snapshot"||f.Turn<0||len(f.Units)==0{invalid++;continue}
   seen:=map[int]bool{};valid:=true
   for _,u:=range f.Units{if seen[u.ID]||u.HP<0||u.TU<0{valid=false;break};seen[u.ID]=true}
   if valid{frames=append(frames,f)}else{invalid++}
