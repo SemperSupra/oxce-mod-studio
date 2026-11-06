@@ -14,11 +14,11 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5 node24
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6 node24
         with:
           go-version: '1.23'
           cache: false
@@ -55,9 +55,9 @@ jobs:
         run: cd rdte/source-preflight && go run . "$GITHUB_WORKSPACE/.out/generated" "$GITHUB_WORKSPACE/.out/evidence/preflight.json"
       - name: Preserve evidence on failure
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6 node24
         with:
           name: oxce-source-preflight-${{ github.run_id }}
           path: .out/evidence/
-          retention-days: 7
+          retention-days: 30
           if-no-files-found: warn
