@@ -1,0 +1,153 @@
+{
+  "catalog_version": "0.1.0",
+  "engine_lineage": "oxce-coop",
+  "upstream_commit": "33f5c251d29b257130cfbb7634735d2e9c946299",
+  "native_source": "src/CoopMod/TestServer.cpp",
+  "native_blob_sha": "b9c0e896bf360f281030463db6b503112d69f582",
+  "evidence_class": "SOURCE_VERIFIED_COMMAND_PRESENCE_NOT_NATIVE_ACCEPTANCE",
+  "capabilities": [
+    {
+      "id": "game.inspect_state",
+      "native_command": "get_state",
+      "kind": "read",
+      "args": {},
+      "completion": "snapshot",
+      "description": "Return engine state stack type names",
+      "source_line": 5367,
+      "idempotent": true
+    },
+    {
+      "id": "ui.inspect_screen",
+      "native_command": "screen_state",
+      "kind": "read",
+      "args": {
+        "item": {
+          "type": "string",
+          "required": false
+        }
+      },
+      "completion": "snapshot",
+      "description": "Return top screen and selected cached UI values",
+      "source_line": 1068,
+      "idempotent": true
+    },
+    {
+      "id": "coop.inspect_checksum",
+      "native_command": "shared_checksum",
+      "kind": "read",
+      "args": {},
+      "completion": "snapshot",
+      "description": "Return checksum reported by SharedEcon",
+      "source_line": 893,
+      "idempotent": true
+    },
+    {
+      "id": "coop.inspect_resync",
+      "native_command": "shared_resync_stats",
+      "kind": "read",
+      "args": {},
+      "completion": "snapshot",
+      "description": "Read resync diagnostic counters",
+      "source_line": 876,
+      "idempotent": true
+    },
+    {
+      "id": "coop.inspect_vote",
+      "native_command": "vote_state",
+      "kind": "read",
+      "args": {},
+      "completion": "snapshot",
+      "description": "Read multiplayer vote state",
+      "source_line": 714,
+      "idempotent": true
+    },
+    {
+      "id": "session.open_new_game",
+      "native_command": "open_new_game",
+      "kind": "control",
+      "args": {
+        "mode": {
+          "type": "enum",
+          "required": true,
+          "values": [
+            "solo",
+            "coop",
+            "coop_separate",
+            "coop_shared",
+            "shared"
+          ]
+        }
+      },
+      "completion": "ack_only",
+      "description": "Push NewGameState; does not prove session established",
+      "source_line": 7917,
+      "idempotent": false
+    },
+    {
+      "id": "session.confirm_new_game",
+      "native_command": "newgame_ok",
+      "kind": "control",
+      "args": {},
+      "completion": "ack_only",
+      "description": "Click actual NewGameState OK; state verification needed",
+      "source_line": 7929,
+      "idempotent": false
+    },
+    {
+      "id": "session.host",
+      "native_command": "host_tcp",
+      "kind": "control",
+      "args": {
+        "server": {
+          "type": "string",
+          "required": true
+        },
+        "port": {
+          "type": "tcp_port",
+          "required": true
+        },
+        "player": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "completion": "ack_only",
+      "description": "Initiate TCP host; must observe lobby and client sync",
+      "source_line": 7434,
+      "idempotent": false
+    },
+    {
+      "id": "session.join",
+      "native_command": "join_tcp",
+      "kind": "control",
+      "args": {
+        "ip": {
+          "type": "ipv4_loopback",
+          "required": true
+        },
+        "port": {
+          "type": "tcp_port",
+          "required": true
+        },
+        "player": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "completion": "ack_only",
+      "description": "Async TCP connection initiation; ack alone not success",
+      "source_line": 7838,
+      "idempotent": false
+    },
+    {
+      "id": "coop.force_resync",
+      "native_command": "force_resync",
+      "kind": "diagnostic",
+      "args": {},
+      "completion": "ack_only",
+      "description": "Mutate shared session via forced repair; sealed diagnostic only",
+      "source_line": 903,
+      "idempotent": false
+    }
+  ]
+}
