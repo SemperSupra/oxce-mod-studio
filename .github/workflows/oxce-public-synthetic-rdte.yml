@@ -190,9 +190,9 @@ jobs:
           echo 'Actual engine compilation passed; native gameplay still requires separate acceptance.' >> "$GITHUB_STEP_SUMMARY"
       - name: Upload exact-run logs for independent review
         if: always()
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5 Node24
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0 Node24
         with:
           name: oxce-native-synthetic-evidence-${{ github.run_id }}-${{ github.run_attempt }}
           path: .out/rdte-evidence/
           retention-days: 7
-          if-no-files-found: warn
+          if-no-files-found: error
