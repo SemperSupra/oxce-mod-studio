@@ -31,12 +31,51 @@ jobs:
         with:
           go-version-file: rdte/cockpit/go.mod
           cache: false
-      - name: Verify offline source contracts, native admission negatives, and static HTML
+      # This is intentionally NOT the stronger scripts-verify-b42.sh gate:
+      # that gate includes an actual unshare -Urn test. Hosted Ubuntu reported
+      # BLOCKED_NO_USER_NETNS (exit 77) in the first CI attempt. Never convert
+      # that missing environmental isolation proof into an acceptance result.
+      - name: Verify source-only contracts; network-namespace isolation HELD
         working-directory: rdte/cockpit
         shell: bash
         run: |
           set -euo pipefail
-          sh scripts-verify-b42.sh
+          go test -race -count=1 ./...
+          go vet ./...
+          go build ./...
+          go run ./cmd/contractcheck -in fixtures/single.jsonl
+          go run ./cmd/contractcheck -host fixtures/host.jsonl -client fixtures/client.jsonl
+          if go run ./cmd/contractcheck -host fixtures/host.jsonl -client fixtures/client-desync-negative.jsonl; then
+            echo 'FAIL: source contract accepted a deliberately desynchronized client' >&2
+            exit 1
+          fi
+          go run ./cmd/catalogcheck -read-id game.inspect_state
+          if go run ./cmd/catalogcheck -read-id session.join; then
+            echo 'FAIL: source catalog allowed a write-like operation' >&2
+            exit 1
+          fi
+          PYTHONPATH=tools python3 -m unittest -v tools/test_python_native_read.py tools/test_native_gate.py
+          python3 - <<'PYHTML'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          class H(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.ids=set()
+                  self.buttons=0
+              def handle_starttag(self,tag,attrs):
+                  d=dict(attrs)
+                  if 'id' in d:
+                      self.ids.add(d['id'])
+                  if tag=='button':
+                      self.buttons+=1
+          p=H()
+          p.feed(Path('cmd/cockpit/index.html').read_text())
+          assert {'events','details','feedback','status','typefilter'}.issubset(p.ids)
+          assert p.buttons>=4
+          print('HTML_STATIC_STRUCTURE_PASS_NOT_BROWSER_ACCEPTANCE')
+          PYHTML
+          printf '%s\n' 'SOURCE_CONTRACT_PASS; NETNS_ISOLATION_HELD; NATIVE_GAMEPLAY_NOT_RUN'
       - name: Validate original native preflight Python syntax
         working-directory: rdte/cockpit
         shell: bash
