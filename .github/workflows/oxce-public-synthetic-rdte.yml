@@ -7,12 +7,13 @@ on:
     paths:
       - ".github/workflows/oxce-public-synthetic-rdte.yml"
       - "rdte/oxce-engine-synthetic/engine-source/**"
+      - "rdte/oxce-engine-synthetic/engine_selector.py"
 
 permissions:
   contents: read
 
 concurrency:
-  group: oxce-public-synthetic-${{ github.event.pull_request.number }}
+  group: oxce-public-synthetic-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -23,21 +24,39 @@ jobs:
     outputs:
       needed: ${{ steps.diff.outputs.needed }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5 Node24
         with:
           persist-credentials: false
           fetch-depth: 2
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - id: diff
+      - name: Test whole-PR engine-input selection and negative controls
         shell: bash
+        run: python3 rdte/oxce-engine-synthetic/engine_selector.py --self-test
+      - id: diff
+        name: Check entire source-closure diff against pinned PR base, not just last commit
+        shell: bash
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
-            echo 'needed=true' >> "$GITHUB_OUTPUT"
-          elif git diff-tree --no-commit-id --name-only -r HEAD | grep -q '^rdte/oxce-engine-synthetic/engine-source/'; then
-            echo 'needed=true' >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] && [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+              echo "::error::Missing exact PR base/head SHAs"; exit 1;
+            }
+            test "$(git rev-parse HEAD)" = "$HEAD_SHA" || {
+              echo "::error::Checkout is not the exact PR source"; exit 1;
+            }
+            git fetch --no-tags --depth=1 origin "$BASE_SHA"
+            git diff --name-only --no-renames "$BASE_SHA" "$HEAD_SHA" > "$RUNNER_TEMP/oxce-pr-input-closure.txt"
+            python3 rdte/oxce-engine-synthetic/engine_selector.py \
+              --event pull_request --paths "$RUNNER_TEMP/oxce-pr-input-closure.txt" \
+              --output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
+          elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            python3 rdte/oxce-engine-synthetic/engine_selector.py \
+              --event workflow_dispatch --output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
           else
-            echo 'needed=false' >> "$GITHUB_OUTPUT"
-            echo 'Fixture-only change: verified immutable engine replay is the correct venue; no C++ build.' >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::Unknown event $GITHUB_EVENT_NAME"; exit 1
           fi
   actual-engine-smoke:
     name: Build actual OXCE and attempt synthetic engine load
@@ -47,7 +66,7 @@ jobs:
     timeout-minutes: 40
     steps:
       - name: Checkout independently authored public fixture
-        uses: actions/checkout@v4
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5 Node24
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
@@ -154,9 +173,24 @@ jobs:
           echo "Engine smoke only: a 0/124 return is not automatically gameplay or engine-rule acceptance." >> "$GITHUB_STEP_SUMMARY"
           echo "Original game assets were neither downloaded nor supplied." >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Fail closed if this requested *actual engine build* did not compile
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s .out/rdte-evidence/exit.env || {
+            echo "::error::Missing engine build result evidence"; exit 1;
+          }
+          grep -qx 'configure_exit=0' .out/rdte-evidence/exit.env || {
+            echo "::error::OXCE configure failed or was not attempted"; exit 1;
+          }
+          grep -qx 'build_exit=0' .out/rdte-evidence/exit.env || {
+            echo "::error::OXCE compile failed; native/gameplay never qualified"; exit 1;
+          }
+          echo 'Actual engine compilation passed; native gameplay still requires separate acceptance.' >> "$GITHUB_STEP_SUMMARY"
       - name: Upload exact-run logs for independent review
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5 Node24
         with:
           name: oxce-native-synthetic-evidence-${{ github.run_id }}-${{ github.run_attempt }}
           path: .out/rdte-evidence/
