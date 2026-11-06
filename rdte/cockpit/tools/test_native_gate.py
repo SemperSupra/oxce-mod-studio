@@ -28,7 +28,11 @@ class NativeGateTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.path = Path(self.tmp.name) / 'engine'
-        self.path.write_bytes(b'\x7fELF' + b'\x00' * 40)
+        elf = bytearray(b'\x7fELF' + b'\x00' * 40)
+        elf[4] = 2  # ELF64
+        elf[5] = 1  # little-endian
+        elf[18:20] = (62).to_bytes(2, 'little')  # EM_X86_64
+        self.path.write_bytes(elf)
         self.digest = hashlib.sha256(self.path.read_bytes()).hexdigest()
 
     def inspect(self, *, readelf=None, cache=None):
@@ -49,7 +53,7 @@ class NativeGateTest(unittest.TestCase):
         self.assertFalse(r['native_gameplay_accepted'])
 
     def test_missing_direct_lib(self):
-        r = self.inspect(cache=lambda: P('libc.so.6 (libc6) => /lib/libc.so.6'))
+        r = self.inspect(cache=lambda: P('libc.so.6 (libc6,x86-64) => /lib/libc.so.6'))
         self.assertEqual(r['reason'], 'DIRECT_DEPENDENCIES_NOT_IN_HOST_CACHE')
         self.assertEqual(r['missing_sonames'], ['libSDL-1.2.so.0'])
 
@@ -105,6 +109,33 @@ class NativeGateTest(unittest.TestCase):
             return P(DYNAMIC)
         r = self.inspect(readelf=modify)
         self.assertEqual(r['reason'], 'INPUT_CHANGED_DURING_PROBE')
+
+    def test_reject_wrong_abi_even_when_sonames_are_present(self):
+        wrong = '''libSDL-1.2.so.0 (libc6) => /lib/i386-linux-gnu/libSDL-1.2.so.0
+ libc.so.6 (libc6) => /lib/i386-linux-gnu/libc.so.6
+'''
+        r = self.inspect(cache=lambda: P(wrong))
+        self.assertEqual(r['reason'], 'DIRECT_DEPENDENCIES_NOT_IN_HOST_CACHE')
+        self.assertEqual(r['binary_abi'], 'elf64-x86_64')
+        self.assertEqual(r['missing_sonames'], ['libSDL-1.2.so.0', 'libc.so.6'])
+
+    def test_reject_mixed_abi_cache_entry(self):
+        mixed = '''libSDL-1.2.so.0 (libc6) => /lib/i386-linux-gnu/libSDL-1.2.so.0
+ libc.so.6 (libc6,x86-64) => /lib/x86_64-linux-gnu/libc.so.6
+'''
+        r = self.inspect(cache=lambda: P(mixed))
+        self.assertEqual(r['missing_sonames'], ['libSDL-1.2.so.0'])
+
+    def test_reject_wrong_machine_and_elf_class_before_probing(self):
+        for byte_offset, value in [(4,1),(18,183),(5,2)]:
+            elf = bytearray(self.path.read_bytes())
+            elf[byte_offset] = value
+            self.path.write_bytes(elf)
+            digest = hashlib.sha256(elf).hexdigest()
+            with self.subTest(offset=byte_offset):
+                result = inspect_binary(self.path, digest, readelf=lambda fd: self.fail('readelf must not run'))
+                self.assertEqual(result['reason'],'UNSUPPORTED_ELF_ABI')
+            self.path.write_bytes(bytearray(b'\x7fELF') + bytes([2,1]) + b'\x00'*12 + (62).to_bytes(2,'little') + b'\x00'*24)
 
     def test_direct_probe_references_verified_open_fd(self):
         from native_gate import _readelf_dynamic
