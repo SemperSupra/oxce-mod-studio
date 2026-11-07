@@ -1,0 +1,280 @@
+name: Public OXCE 8.6.5 synthetic-master engine RDTE
+# Fixture/rules/audio-only edits use the source preflight + immutable-binary replay.
+# Do not rebuild the same C++ engine for every generated game-content change.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/oxce-public-synthetic-rdte.yml"
+      - "rdte/oxce-engine-synthetic/engine-source/**"
+      - "rdte/oxce-engine-synthetic/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oxce-public-synthetic-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  select-engine-build:
+    name: Select source-changed engine build without repeated fixture compiles
+    runs-on: ubuntu-22.04
+    timeout-minutes: 3
+    outputs:
+      needed: ${{ steps.diff.outputs.needed }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5 Node24
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Test whole-PR selector and native-classifier negative controls
+        shell: bash
+        run: |
+          python3 rdte/oxce-engine-synthetic/engine_selector.py --self-test
+          node --test rdte/oxce-engine-synthetic/classify.test.mjs
+      - id: diff
+        name: Check entire source-closure diff against pinned PR base, not just last commit
+        shell: bash
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] && [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+              echo "::error::Missing exact PR base/head SHAs"; exit 1;
+            }
+            test "$(git rev-parse HEAD)" = "$HEAD_SHA" || {
+              echo "::error::Checkout is not the exact PR source"; exit 1;
+            }
+            git fetch --no-tags --depth=1 origin "$BASE_SHA"
+            git diff --name-only --no-renames "$BASE_SHA" "$HEAD_SHA" > "$RUNNER_TEMP/oxce-pr-input-closure.txt"
+            python3 rdte/oxce-engine-synthetic/engine_selector.py \
+              --event pull_request --paths "$RUNNER_TEMP/oxce-pr-input-closure.txt" \
+              --output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
+          elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            python3 rdte/oxce-engine-synthetic/engine_selector.py \
+              --event workflow_dispatch --output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error::Unknown event $GITHUB_EVENT_NAME"; exit 1
+          fi
+  actual-engine-smoke:
+    name: Build actual OXCE and attempt synthetic engine load
+    needs: select-engine-build
+    if: needs.select-engine-build.outputs.needed == 'true'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout independently authored public fixture
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5 Node24
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Record provenance and zero-cost runner class
+        run: |
+          mkdir -p .out/rdte-evidence
+          printf 'PUBLIC_SOURCE_SHA=%s\nEVENT=%s\nRUN_ID=%s\nRUN_ATTEMPT=%s\nRUNNER_NAME=%s\n' \
+            "${GITHUB_SHA}" "${GITHUB_EVENT_NAME}" "${GITHUB_RUN_ID}" \
+            "${GITHUB_RUN_ATTEMPT}" "${RUNNER_NAME}" | tee .out/rdte-evidence/provenance.txt
+          printf 'UPSTREAM=MeridianOXC/OpenXcom@668880bb756852f0734cfe92e438e400080a2f4d\n' >> .out/rdte-evidence/provenance.txt
+
+      - name: Install public, non-proprietary build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config git \
+            libsdl1.2-dev libsdl-image1.2-dev libsdl-gfx1.2-dev \
+            libsdl-mixer1.2-dev libyaml-cpp-dev libboost-dev \
+            libgl1-mesa-dev xvfb xauth imagemagick
+
+      - name: Fetch pinned upstream OXCE 8.6.5 source publicly
+        run: |
+          git init .out/upstream
+          git -C .out/upstream remote add origin https://github.com/MeridianOXC/OpenXcom.git
+          git -C .out/upstream fetch --depth 1 origin 668880bb756852f0734cfe92e438e400080a2f4d
+          git -C .out/upstream checkout --detach FETCH_HEAD
+          test "$(git -C .out/upstream rev-parse HEAD)" = "668880bb756852f0734cfe92e438e400080a2f4d"
+          git -C .out/upstream status --porcelain
+
+      - name: Record exact public runner/toolchain fingerprint
+        id: toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            printf 'image:%s:%s\n' "$ImageOS" "$ImageVersion"
+            cmake --version | head -n1
+            c++ --version | head -n1
+            ninja --version
+            dpkg-query -W build-essential cmake ninja-build \
+              libsdl1.2-dev libsdl-image1.2-dev libsdl-gfx1.2-dev \
+              libsdl-mixer1.2-dev libyaml-cpp-dev libboost-dev libgl1-mesa-dev | LC_ALL=C sort
+          } > .out/rdte-evidence/native-toolchain.txt
+          echo "sha=$(sha256sum .out/rdte-evidence/native-toolchain.txt | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - name: Compute exact native-source and toolchain cache key
+        id: cache-key
+        env:
+          CONTRACT_HASH: ${{ hashFiles('.github/workflows/oxce-public-synthetic-rdte.yml', 'rdte/oxce-engine-synthetic/engine-source/**', 'rdte/oxce-engine-synthetic/engine_selector.py') }}
+          TOOLCHAIN_HASH: ${{ steps.toolchain.outputs.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$CONTRACT_HASH" =~ ^[0-9a-f]{64}$ ]] && [[ "$TOOLCHAIN_HASH" =~ ^[0-9a-f]{64}$ ]]
+          printf 'key=oxce-native-v1-%s-%s-%s-%s\n' "$RUNNER_OS" "$RUNNER_ARCH" "$TOOLCHAIN_HASH" "$CONTRACT_HASH" >> "$GITHUB_OUTPUT"
+      - name: Restore unchanged, public-only pinned engine from scoped immutable cache
+        uses: actions/cache@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5 Node24
+        id: native-cache
+        with:
+          path: |
+            .out/oxce-build/bin/openxcom
+            .out/oxce-build/native-cache.sha256
+            .out/oxce-build/native-cache-origin.txt
+          key: ${{ steps.cache-key.outputs.key }}
+      - name: Fail closed if restored native cache provenance or ELF is invalid
+        if: steps.native-cache.outputs.cache-hit == 'true'
+        shell: bash
+        env:
+          NATIVE_CACHE_KEY: ${{ steps.cache-key.outputs.key }}
+        run: |
+          set -euo pipefail
+          BIN=.out/oxce-build/bin/openxcom
+          META=.out/oxce-build/native-cache-origin.txt
+          test -x "$BIN" && test -f "$META" && test ! -L "$BIN" && test ! -L "$META"
+          grep -Fxq "cache_key=$NATIVE_CACHE_KEY" "$META"
+          grep -Fxq 'upstream=668880bb756852f0734cfe92e438e400080a2f4d' "$META"
+          grep -Eq '^origin_sha=[0-9a-f]{40}$' "$META"
+          grep -Eq '^origin_run=[0-9]{1,20}$' "$META"
+          sha256sum --check --status .out/oxce-build/native-cache.sha256
+          readelf -h "$BIN" | grep -Eq 'Machine:[[:space:]]+Advanced Micro Devices X86-64'
+          echo 'cache_verify_exit=0' >> .out/rdte-evidence/exit.env
+          echo 'native_binary_origin=VERIFIED_SCOPED_CACHE' >> .out/rdte-evidence/exit.env
+      - name: Compile real pinned engine on verified cache miss
+        id: build
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set +e
+          cmake -S .out/upstream -B .out/oxce-build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_PACKAGE=OFF -DDEV_BUILD=OFF \
+            > .out/rdte-evidence/configure.log 2>&1
+          crc=$?
+          echo "configure_exit=$crc" | tee -a .out/rdte-evidence/exit.env
+          if [ "$crc" -eq 0 ]; then
+            cmake --build .out/oxce-build --parallel 4 > .out/rdte-evidence/build.log 2>&1
+            brc=$?
+          else
+            brc=125
+          fi
+          echo "build_exit=$brc" | tee -a .out/rdte-evidence/exit.env
+          if [ "$brc" -ne 0 ]; then
+            echo "OXCE_ENGINE_BUILD=FAIL" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "OXCE_ENGINE_BUILD=PASS" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit 0
+
+      - name: Seal and verify current exact-source engine build
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        shell: bash
+        env:
+          NATIVE_CACHE_KEY: ${{ steps.cache-key.outputs.key }}
+          ORIGIN_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          if grep -qx 'build_exit=0' .out/rdte-evidence/exit.env; then
+            BIN=.out/oxce-build/bin/openxcom
+            test -x "$BIN" && test ! -L "$BIN"
+            sha256sum "$BIN" > .out/oxce-build/native-cache.sha256
+            {
+              printf 'cache_key=%s\n' "$NATIVE_CACHE_KEY"
+              printf 'upstream=%s\n' 668880bb756852f0734cfe92e438e400080a2f4d
+              printf 'origin_sha=%s\norigin_run=%s\n' "$ORIGIN_SHA" "$GITHUB_RUN_ID"
+            } > .out/oxce-build/native-cache-origin.txt
+            sha256sum --check --status .out/oxce-build/native-cache.sha256
+            readelf -h "$BIN" | grep -Eq 'Machine:[[:space:]]+Advanced Micro Devices X86-64'
+            echo 'seal_verify_exit=0' >> .out/rdte-evidence/exit.env
+            echo 'native_binary_origin=BUILT_THIS_RUN' >> .out/rdte-evidence/exit.env
+            cp .out/oxce-build/native-cache-origin.txt .out/rdte-evidence/
+            cp .out/oxce-build/native-cache.sha256 .out/rdte-evidence/
+          fi
+
+      - name: Generate synthetic master (no original game files)
+        if: always()
+        run: |
+          node rdte/oxce-engine-synthetic/generate.mjs .out/synthetic
+          node rdte/oxce-engine-synthetic/generate-font.mjs .out/synthetic
+          test -s .out/synthetic/user/mods/rdte-synthetic-master/Language/rdte-fonts.yml
+          test -s .out/synthetic/user/mods/rdte-synthetic-master/Language/rdte-fonts.png
+          cp -a .out/upstream/bin/common .out/synthetic/data/common
+          cp -a .out/upstream/bin/standard .out/synthetic/data/standard
+          node rdte/oxce-engine-synthetic/generate-legacy.mjs .out/synthetic/data/SYNTHETIC
+          test -s .out/synthetic/data/SYNTHETIC/GEODATA/PALETTES.DAT
+          test ! -e .out/synthetic/data/UFO
+          test ! -e .out/synthetic/data/TFTD
+          sha256sum .out/synthetic/user/mods/rdte-synthetic-master/metadata.yml \
+            .out/synthetic/user/mods/rdte-synthetic-master/Ruleset/*.rul \
+            > .out/rdte-evidence/synthetic-hashes.txt
+
+      - name: Attempt real engine startup with generated master
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          BIN=".out/oxce-build/bin/openxcom"
+          if [ ! -x "$BIN" ]; then
+            echo "engine_launch_exit=125" >> .out/rdte-evidence/exit.env
+            echo "native_launch_attempted=false" >> .out/rdte-evidence/exit.env
+            exit 0
+          fi
+          echo "native_launch_attempted=true" >> .out/rdte-evidence/exit.env
+          SDL_AUDIODRIVER=dummy timeout --kill-after=5s 25s xvfb-run -a sh -c \
+            '"$@" > .out/rdte-evidence/engine-stdout-stderr.log 2>&1 & pid=$!; sleep 4; import -display "$DISPLAY" -window root .out/rdte-evidence/engine-screen.png || true; wait "$pid"' sh "$BIN" \
+            -data "$PWD/.out/synthetic/data" \
+            -user "$PWD/.out/synthetic/user" \
+            -config "$PWD/.out/synthetic/config"
+          rc=$?
+          echo "engine_launch_exit=$rc" >> .out/rdte-evidence/exit.env
+          find .out/synthetic -maxdepth 5 -type f \
+            \( -iname '*openxcom*.log' -o -iname '*error*.log' \) -print \
+            -exec cp '{}' .out/rdte-evidence/ \; || true
+          echo "Native engine launch exit: $rc" >> "$GITHUB_STEP_SUMMARY"
+          tail -n 80 .out/rdte-evidence/engine-stdout-stderr.log || true
+          exit 0
+
+      - name: Classify evidence without false passing the engine
+        if: always()
+        shell: bash
+        run: |
+          cat .out/rdte-evidence/exit.env || true
+          node rdte/oxce-engine-synthetic/classify.mjs .out/rdte-evidence
+          echo "Engine smoke only: a 0/124 return is not automatically gameplay or engine-rule acceptance." >> "$GITHUB_STEP_SUMMARY"
+          echo "Original game assets were neither downloaded nor supplied." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Require verified native binary build or scoped cache receipt
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s .out/rdte-evidence/exit.env || {
+            echo "::error::Missing engine build result evidence"; exit 1;
+          }
+          if grep -qx 'configure_exit=0' .out/rdte-evidence/exit.env &&
+             grep -qx 'build_exit=0' .out/rdte-evidence/exit.env &&
+             grep -qx 'seal_verify_exit=0' .out/rdte-evidence/exit.env; then
+            echo 'Pinned C++ engine built and byte-verified in this run; gameplay NOT qualified.' >> "$GITHUB_STEP_SUMMARY"
+          elif grep -qx 'cache_verify_exit=0' .out/rdte-evidence/exit.env &&
+               grep -qx 'native_binary_origin=VERIFIED_SCOPED_CACHE' .out/rdte-evidence/exit.env; then
+            echo 'Pinned ELF restored from verified GH PR cache; no new build claimed.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error::No verified current build or scoped cached binary"; exit 1
+          fi
+      - name: Upload exact-run logs for independent review
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0 Node24
+        with:
+          name: oxce-native-synthetic-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .out/rdte-evidence/
+          retention-days: 7
+          if-no-files-found: error
