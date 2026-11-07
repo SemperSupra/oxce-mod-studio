@@ -14,7 +14,7 @@ function fixture(t,kind='save-load') {
   const states=kind==='save-load'?
     ['MainMenuState','BattlescapeState','SaveGameState','BattlescapeState','LoadGameState','BattlescapeState']:
     ['MainMenuState','BattlescapeState','AbortMissionState','DebriefingState'];
-  fs.writeFileSync(path.join(root,'trace.jsonl'), states.map(s=>JSON.stringify({event:'state',class:'N8OpenXcom'+s})).join('\n')+'\n');
+  fs.writeFileSync(path.join(root,'trace.jsonl'), states.map(s=>JSON.stringify({event:'screen-class',class:'N8OpenXcom'+s})).join('\n')+'\n');
   fs.writeFileSync(path.join(root,'commands.txt'),kind==='save-load'?'KEY 286\nKEY 290\n':'CLICK 510 336\nCLICK 100 236\n');
   fs.writeFileSync(path.join(user,'_quicksave_.sav'), 'X'.repeat(2048));
   return root;
@@ -44,7 +44,7 @@ test('missing F9 cannot qualify even with UI state',t=>{
 });
 test('no abort debrief must fail despite confirmation',t=>{
   const root=fixture(t,'abort');fs.writeFileSync(path.join(root,'trace.jsonl'),
-    JSON.stringify({event:'state',class:'BattlescapeState'})+'\n'+JSON.stringify({event:'state',class:'AbortMissionState'})+'\n');
+    JSON.stringify({event:'screen-class',class:'BattlescapeState'})+'\n'+JSON.stringify({event:'screen-class',class:'AbortMissionState'})+'\n');
   assert.equal(evaluateBoundary(root,'abort').abortDebriefQualified,false);
 });
 test('native fatal prevents acceptance',t=>{

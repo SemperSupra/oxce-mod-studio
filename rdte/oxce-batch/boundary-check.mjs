@@ -21,7 +21,7 @@ function stateNames(folder) {
   return lines.map((line,i) => {
     let e;
     try { e = JSON.parse(line); } catch { throw Error(`malformed native trace line ${i+1}`); }
-    if (!e || e.event !== 'state' || typeof e.class !== 'string' || !e.class) {
+    if (!e || e.event !== 'screen-class' || typeof e.class !== 'string' || !e.class) {
       throw Error(`invalid native state event ${i+1}`);
     }
     return e.class;
