@@ -1,0 +1,24 @@
+# First-party public-original-only synthetic debrief UI, never retail media.
+# Frozen OXCE DebriefingState requires the debriefing interface plus totals/list.
+interfaces:
+  - type: debriefing
+    palette: PAL_GEOSCAPE
+    backgroundImage: BACK01.SCR
+    elements:
+      - id: window
+        color: 177
+      - id: button
+        color: 181
+      - id: heading
+        color: 206
+      - id: text
+        color: 206
+      - id: list
+        color: 181
+        custom: 100
+      - id: totals
+        color: 61
+      - id: errorMessage
+        color: 206
+      - id: errorPalette
+        color: 0

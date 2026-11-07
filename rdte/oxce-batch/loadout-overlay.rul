@@ -1,0 +1,12 @@
+# Original-only, opt-in OXCE native tactical armament experiment.
+# No retail art. BIGOBS/FLOOROB/HANDOB indexes refer only to generated blank
+# synthetic media. This is NOT a player-facing art qualification.
+items:
+  - type: STR_RDTE_TOOL
+    bigSprite: 0
+    floorSprite: 0
+    handSprite: 0
+  - type: STR_RDTE_CELL
+    bigSprite: 1
+    floorSprite: 1
+    handSprite: 1
