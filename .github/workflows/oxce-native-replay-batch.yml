@@ -74,6 +74,9 @@ jobs:
           mkdir -p .out/package/user/mods/rdte-synthetic-master/SoldierName
           cp -a .out/new-rules/user/mods/rdte-synthetic-master/SoldierName/. .out/package/user/mods/rdte-synthetic-master/SoldierName/
           cp .out/new-rules/user/mods/rdte-synthetic-master/Ruleset/10-synthetic.rul .out/package/user/mods/rdte-synthetic-master/Ruleset/
+          cp rdte/oxce-batch/debriefing-overlay.rul .out/package/user/mods/rdte-synthetic-master/Ruleset/11-debriefing.rul
+          test -s .out/package/user/mods/rdte-synthetic-master/Ruleset/11-debriefing.rul
+          sha256sum .out/package/user/mods/rdte-synthetic-master/Ruleset/11-debriefing.rul > .out/evidence/original-debrief-interface.sha256
           cp .out/new-rules/user/mods/rdte-synthetic-master/Language/en-US.yml .out/package/user/mods/rdte-synthetic-master/Language/
           cp .out/new-rules/user/mods/rdte-synthetic-master/Language/rdte-fonts.* .out/package/user/mods/rdte-synthetic-master/Language/
           sha256sum .out/package/user/mods/rdte-synthetic-master/Ruleset/10-synthetic.rul > .out/evidence/original-game-rules.sha256
