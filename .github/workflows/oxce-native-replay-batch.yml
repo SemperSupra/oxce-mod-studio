@@ -112,8 +112,9 @@ jobs:
       - name: Validate save-state semantic classifier with adverse source fixtures
         shell: bash
         run: |
-          python3 -m unittest -q rdte/oxce-batch/test_save_snapshot_parity.py
-          python3 -m py_compile rdte/oxce-batch/save_snapshot_parity.py rdte/oxce-batch/test_save_snapshot_parity.py
+          python3 -m unittest -q rdte/oxce-batch/test_save_snapshot_parity.py rdte/oxce-batch/test_restore_state_compare.py
+          bash -n rdte/oxce-batch/run-case.sh
+          python3 -m py_compile rdte/oxce-batch/save_snapshot_parity.py rdte/oxce-batch/test_save_snapshot_parity.py rdte/oxce-batch/restore_state_compare.py rdte/oxce-batch/test_restore_state_compare.py
       - name: Execute six independent game-window scenarios using one binary
         shell: bash
         run: |
@@ -312,6 +313,41 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
             'Actual OXCE F5 saved-unit/TU/health/status match the last pre-F9 native snapshot; '+
             'post-F9 restored state remains NOT_QUALIFIED.\n');
+          NODE
+      - name: Check F9 restored observable unit/turn subset after a real intervening native turn
+        shell: bash
+        run: |
+          set -euo pipefail
+          SF_INVENTORY_CONFIRM=1 SF_NEXT_TURN_CONTINUE=1 SF_PLAYER_MOVE=1 \
+            SF_SAVE_RELOAD=1 SF_RESTORE_COMPARE=1 \
+            timeout --kill-after=2s 74s xvfb-run -a \
+            bash rdte/oxce-batch/run-case.sh .out/package \
+            new-battle-briefing-continue .out/evidence/restore-subset
+          ROOT=.out/evidence/restore-subset
+          test -s "$ROOT/pre-f9-quicksave.asav"
+          test -s "$ROOT/post-f9-quicksave.asav"
+          test -s "$ROOT/save-write-times.txt"
+          python3 rdte/oxce-batch/restore_state_compare.py \
+            "$ROOT/pre-f9-quicksave.asav" "$ROOT/post-f9-quicksave.asav" \
+            "$ROOT/battle.jsonl" "$ROOT/trace.jsonl" \
+            "$ROOT/commands.txt" "$ROOT/user/openxcom.log" \
+            .out/evidence/restore-subset-receipt.json
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const receipt=JSON.parse(fs.readFileSync('.out/evidence/restore-subset-receipt.json','utf8'));
+          if (receipt.restoredObservableUnitStateSubsetQualified !== true ||
+              receipt.fullSaveRestoreSemanticsQualified !== false ||
+              receipt.signalFrontierMvpQualified !== false ||
+              receipt.nativeSecondPlayerTurnObserved !== true ||
+              receipt.nativeReloadSaveStateSequenceObserved !== true ||
+              receipt.boundedMailboxCommandOrderObserved !== true ||
+              receipt.firstFatal !== '' || receipt.changedUnits.length !== 0) {
+            throw new Error('FAIL_CLOSED: real F9 observable-unit restoration proof missing');
+          }
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+            'Actual modified OXCE native F5(A) -> intervening turn(B) -> F9(A) -> F5(A) '+
+            'restored observable unit/turn subset. Entire save-state, original game, '+
+            'stock Signal Frontier, and release acceptance NOT_QUALIFIED.\n');
           NODE
       - name: Symbolize first native tactical crash using the same verified engine binary
         if: failure()
