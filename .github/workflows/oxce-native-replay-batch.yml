@@ -27,6 +27,7 @@ jobs:
         run: |
           cd rdte/oxce-batch
           GO111MODULE=off go test ./...
+          node --test test-player-action-gate.mjs
           node --test test-boundary-check.mjs
           GO111MODULE=off go build -o "$GITHUB_WORKSPACE/.out-inspect" inspect.go telemetry.go
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7 node24
@@ -240,25 +241,20 @@ jobs:
             SF_SECOND_NEXT_TURN_CONTINUE=1 timeout --kill-after=2s 42s xvfb-run -a \
             bash rdte/oxce-batch/run-case.sh \
             .out/package new-battle-briefing-continue .out/evidence/player-move-tactical || true
+          # This tactical core classifier has a *separate* hostile-action contract:
+          # its exit=1 can mean only 'enemy did not act in THIS player trial'.
+          # Preserve its unmodified receipt, then evaluate this player's exact gate.
           ./.out-inspect --tactical .out/evidence/player-move-tactical/battle.jsonl \
-            .out/evidence/player-action-tactical-receipt.json
-          node - <<'NODE'
-          const fs=require('node:fs');
-          const receipt=JSON.parse(fs.readFileSync('.out/evidence/player-action-tactical-receipt.json','utf8'));
-          const commands=fs.readFileSync('.out/evidence/player-move-tactical/commands.txt','utf8');
-          const valid=commands.includes('CLICK 320 204') &&
-            receipt.MalformedFrames===0 && receipt.FirstFailure==='' &&
-            receipt.PlayerMoveObserved && receipt.PlayerTUDecreased &&
-            receipt.PlayerMovementSpentTU && receipt.EnemyActionObserved &&
-            !receipt.GameplayQualified;
-          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
-            'Exact native player action: '+(valid?'player position/TU delta verified':'RED: player move/TU proof missing')+
-            '; gameplay/debrief/save and human acceptance remain NOT_QUALIFIED.\n');
-          if (!valid) {
-            console.error('FIRST_PLAYER_MOVEMENT_GATE_NOT_MET: '+JSON.stringify(receipt));
-            process.exit(1);
-          }
-          NODE
+            .out/evidence/player-action-tactical-receipt.json || true
+          node rdte/oxce-batch/player-action-gate.mjs \
+            .out/evidence/player-action-tactical-receipt.json \
+            .out/evidence/player-move-tactical/commands.txt \
+            .out/evidence/player-move-tactical/user/openxcom.log \
+            .out/evidence/player-move-tactical/battle.jsonl \
+            .out/evidence/player-action-gate-receipt.json
+          printf '%s\n' \
+            'Exact native player action gate: independent player position/TU proof; the separate prior hostile-action gate remains required.' \
+            'Gameplay, debrief/save semantics, and human acceptance remain NOT_QUALIFIED.' >> "$GITHUB_STEP_SUMMARY"
       - name: Exercise actual save/load and abort/debrief with isolated native clients
         shell: bash
         run: |
