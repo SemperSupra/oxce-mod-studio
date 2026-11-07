@@ -112,9 +112,9 @@ jobs:
       - name: Validate save-state semantic classifier with adverse source fixtures
         shell: bash
         run: |
-          python3 -m unittest -q rdte/oxce-batch/test_save_snapshot_parity.py rdte/oxce-batch/test_restore_state_compare.py
+          python3 -m unittest -q rdte/oxce-batch/test_save_snapshot_parity.py rdte/oxce-batch/test_restore_state_compare.py rdte/oxce-batch/test_loadout_overlay.py rdte/oxce-batch/test_check_native_loadout.py
           bash -n rdte/oxce-batch/run-case.sh
-          python3 -m py_compile rdte/oxce-batch/save_snapshot_parity.py rdte/oxce-batch/test_save_snapshot_parity.py rdte/oxce-batch/restore_state_compare.py rdte/oxce-batch/test_restore_state_compare.py
+          python3 -m py_compile rdte/oxce-batch/save_snapshot_parity.py rdte/oxce-batch/test_save_snapshot_parity.py rdte/oxce-batch/restore_state_compare.py rdte/oxce-batch/test_restore_state_compare.py rdte/oxce-batch/check_native_loadout.py rdte/oxce-batch/test_check_native_loadout.py rdte/oxce-batch/test_loadout_overlay.py
       - name: Execute six independent game-window scenarios using one binary
         shell: bash
         run: |
@@ -348,6 +348,39 @@ jobs:
             'Actual modified OXCE native F5(A) -> intervening turn(B) -> F9(A) -> F5(A) '+
             'restored observable unit/turn subset. Entire save-state, original game, '+
             'stock Signal Frontier, and release acceptance NOT_QUALIFIED.\n');
+          NODE
+      - name: Probe genuine New Battle player equipment under isolated original-only loadout
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Keep all established native gameplay and F9/abort scenarios unchanged.
+          cp -a .out/package .out/armed-package
+          cmp .out/package/openxcom-sf-rdte .out/armed-package/openxcom-sf-rdte
+          RULE=.out/armed-package/user/mods/rdte-synthetic-master/Ruleset/12-loadout-qualification.rul
+          cp rdte/oxce-batch/loadout-overlay.rul "$RULE"
+          test -s "$RULE"
+          sha256sum "$RULE" > .out/evidence/armed-original-overlay.sha256
+          SF_INVENTORY_CONFIRM=1 SF_NEXT_TURN_CONTINUE=1 SF_PLAYER_MOVE=1 \
+            SF_SAVE_RELOAD=1 timeout --kill-after=2s 48s xvfb-run -a \
+            bash rdte/oxce-batch/run-case.sh .out/armed-package \
+            new-battle-briefing-continue .out/evidence/armed-player
+          SAVE=.out/evidence/armed-player/user/rdte-synthetic-master/_quick_.asav
+          test -s "$SAVE" && test ! -L "$SAVE"
+          python3 rdte/oxce-batch/check_native_loadout.py "$SAVE" \
+            .out/evidence/armed-player-loadout-receipt.json
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const r=JSON.parse(fs.readFileSync('.out/evidence/armed-player-loadout-receipt.json','utf8'));
+          if (r.playerLoadoutObserved !== true || r.weaponActionVerified !== false ||
+              r.loadedAmmoVerified !== false || r.enemyDamageVerified !== false ||
+              r.victoryQualified !== false || r.stockEngineQualified !== false ||
+              r.signalFrontierMvpQualified !== false || r.playerUnitCount < 1 ||
+              r.playerOwnedToolItemIds.length < 1 || r.playerAccessibleCellItemIds.length < 1)
+            throw Error('NATIVE_ARMAMENT_INVENTORY_NOT_QUALIFIED');
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+            'Real native modified-engine player item + accessible cell ownership PASS; '+
+            'loaded ammunition, firing/damage, successful mission/debrief, stock/OXCE '+
+            'original media and human Q4/Q5 NOT_QUALIFIED.\n');
           NODE
       - name: Symbolize first native tactical crash using the same verified engine binary
         if: failure()
