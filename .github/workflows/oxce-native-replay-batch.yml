@@ -320,7 +320,7 @@ jobs:
           set -euo pipefail
           SF_INVENTORY_CONFIRM=1 SF_NEXT_TURN_CONTINUE=1 SF_PLAYER_MOVE=1 \
             SF_SAVE_RELOAD=1 SF_RESTORE_COMPARE=1 \
-            timeout --kill-after=2s 74s xvfb-run -a \
+            timeout --kill-after=2s 110s xvfb-run -a \
             bash rdte/oxce-batch/run-case.sh .out/package \
             new-battle-briefing-continue .out/evidence/restore-subset
           ROOT=.out/evidence/restore-subset

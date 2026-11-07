@@ -63,23 +63,69 @@ if kill -0 "$pid" 2>/dev/null; then
           test -s "$quick" && test ! -L "$quick" || { echo 'MISSING_FRESH_FIRST_QUICKSAVE' >&2; exit 3; }
           cp "$quick" "$target/pre-f9-quicksave.asav" || exit 3
           before_stamp="$(stat -c '%y' "$quick")"
-          # Mutate the *real* battle by ending the player's turn. Await the
-          # second observed NextTurnState rather than relying on a fixed sleep.
+          # RED B70: second NextTurnState begins the ALIEN turn, not the
+          # next player turn. Never send F9 into a transition screen.
           printf 'CLICK 510 304\n' >> "$target/commands.txt"
           second_overlay=0
-          for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14; do
+          for attempt in {1..16}; do
             count="$(grep -c 'NextTurnState' "$target/trace.jsonl" 2>/dev/null || true)"
             if [ "${count:-0}" -ge 2 ]; then second_overlay=1; break; fi
+            kill -0 "$pid" 2>/dev/null || { echo 'ENGINE_EXITED_DURING_ENEMY_TURN' >&2; exit 4; }
             sleep 1
           done
-          test "$second_overlay" = 1 || { echo 'NO_INTERVENING_NATIVE_TURN_OVERLAY' >&2; exit 4; }
+          test "$second_overlay" = 1 || { echo 'NO_ENEMY_TURN_OVERLAY' >&2; exit 4; }
           printf 'CLICK 320 200\n' >> "$target/commands.txt"
-          sleep 2
+          third_overlay=0
+          for attempt in {1..22}; do
+            count="$(grep -c 'NextTurnState' "$target/trace.jsonl" 2>/dev/null || true)"
+            if [ "${count:-0}" -ge 3 ]; then third_overlay=1; break; fi
+            kill -0 "$pid" 2>/dev/null || { echo 'ENGINE_EXITED_BEFORE_PLAYER_TURN' >&2; exit 4; }
+            sleep 1
+          done
+          test "$third_overlay" = 1 || { echo 'NO_RETURN_TO_PLAYER_OVERLAY' >&2; exit 4; }
+          # An extra click after the overlay is closed would move a unit.
+          if tail -n 1 "$target/trace.jsonl" | grep -q 'NextTurnState'; then
+            printf 'KEY 13\n' >> "$target/commands.txt"
+          fi
+          player_ready=0
+          for attempt in {1..18}; do
+            if grep -Eq '"turn":2,"side":0' "$target/battle.jsonl" 2>/dev/null &&
+                tail -n 1 "$target/trace.jsonl" | grep -q 'BattlescapeState'; then
+              player_ready=1
+              break
+            fi
+            kill -0 "$pid" 2>/dev/null || { echo 'ENGINE_EXITED_BEFORE_PLAYER_BATTLE' >&2; exit 4; }
+            sleep 1
+          done
+          test "$player_ready" = 1 || { echo 'SECOND_PLAYER_BATTLE_NOT_ACTIVE' >&2; exit 4; }
         fi
         # Original engine F9/290 quickloads the still-intact first quicksave.
-        printf 'KEY 290\n' >> "$target/commands.txt"
-        sleep 4
         if [ "${SF_RESTORE_COMPARE:-0}" = 1 ]; then
+          battle_before_load="$(grep -c 'BattlescapeState' "$target/trace.jsonl" 2>/dev/null || true)"
+        fi
+        printf 'KEY 290\n' >> "$target/commands.txt"
+        if [ "${SF_RESTORE_COMPARE:-0}" = 1 ]; then
+          load_observed=0
+          for attempt in {1..18}; do
+            count="$(grep -c 'LoadGameState' "$target/trace.jsonl" 2>/dev/null || true)"
+            if [ "${count:-0}" -ge 1 ]; then load_observed=1; break; fi
+            kill -0 "$pid" 2>/dev/null || { echo 'ENGINE_EXITED_BEFORE_LOAD' >&2; exit 5; }
+            sleep 1
+          done
+          test "$load_observed" = 1 || { echo 'F9_NATIVE_LOAD_STATE_NOT_OBSERVED' >&2; exit 5; }
+          loaded_battle=0
+          for attempt in {1..20}; do
+            count="$(grep -c 'BattlescapeState' "$target/trace.jsonl" 2>/dev/null || true)"
+            if [ "${count:-0}" -gt "${battle_before_load:-0}" ] &&
+                tail -n 1 "$target/trace.jsonl" | grep -q 'BattlescapeState'; then
+              loaded_battle=1
+              break
+            fi
+            kill -0 "$pid" 2>/dev/null || { echo 'ENGINE_EXITED_BEFORE_LOADED_BATTLE' >&2; exit 5; }
+            sleep 1
+          done
+          test "$loaded_battle" = 1 || { echo 'POST_F9_BATTLE_NOT_OBSERVED' >&2; exit 5; }
+          sleep 1
           # Reserialize the restored state. Never rely on the F9 command alone.
           printf 'KEY 286\n' >> "$target/commands.txt"
           sleep 3
