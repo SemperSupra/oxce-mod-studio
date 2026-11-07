@@ -80,3 +80,13 @@ test('retail original game root fails before any native execution',t=>{
  const bad=path.join(source,'data/UFO');fs.mkdirSync(bad);
  assert.throws(()=>ablate({sourceRoot:source,workRoot:work,invoke:syntheticExecutor()}),/commercial game path not admitted/);
 });
+
+test('a nonfatal source error still prevents an unqualified clean-load claim',t=>{
+ const {source,work}=setup(t);
+ const r=ablate({sourceRoot:source,workRoot:work,invoke:syntheticExecutor({
+  'without-SOUND':'[INFO] Loading begins...\n[ERROR] Missing optional audio\n[INFO] Loading ended.\n'})});
+ const c=r.cases.find(x=>x.removeGroup==='native-resource:SOUND');
+ assert.equal(c.bootClass,'ENGINE_LOAD_REACHED_WITH_ERRORS');
+ assert.equal(c.loadCompleted,true);assert.ok(c.firstError);
+ assert.equal(c.gameplayQualified,false);assert.equal(r.nativeMinimumProven,false);
+});

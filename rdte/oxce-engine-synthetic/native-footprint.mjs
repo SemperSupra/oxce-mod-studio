@@ -45,9 +45,10 @@ function classify(log,runner) {
   const loadCompleted=log.includes('Loading ended.');
   const startupObserved=log.includes('Loading begins...');
   let bootClass='INDETERMINATE';
-  if (startupObserved && loadCompleted && !firstFatal) bootClass='ENGINE_LOAD_REACHED';
+  if (startupObserved && loadCompleted && !firstFatal) bootClass=firstError?'ENGINE_LOAD_REACHED_WITH_ERRORS':'ENGINE_LOAD_REACHED';
   else if (startupObserved && firstFatal) bootClass='ENGINE_LOGGED_FATAL';
   else if (startupObserved && !loadCompleted && firstError) bootClass='ENGINE_LOAD_INCOMPLETE_WITH_ERROR';
+  if (runner.error) bootClass='INFRA_SPAWN_FAILURE';
   return {startupObserved,loadCompleted,firstError,firstFatal,bootClass,
     boundedExit:runner.exitCode,signal:runner.signal,spawnError:runner.error,elapsedMs:runner.elapsedMs};
 }
