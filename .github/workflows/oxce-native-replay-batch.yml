@@ -27,6 +27,7 @@ jobs:
         run: |
           cd rdte/oxce-batch
           GO111MODULE=off go test ./...
+          node --test test-boundary-check.mjs
           GO111MODULE=off go build -o "$GITHUB_WORKSPACE/.out-inspect" inspect.go telemetry.go
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7 node24
         with:
@@ -255,6 +256,33 @@ jobs:
             process.exit(1);
           }
           NODE
+      - name: Exercise actual save/load and abort/debrief with isolated native clients
+        shell: bash
+        run: |
+          set +e
+          SF_INVENTORY_CONFIRM=1 SF_NEXT_TURN_CONTINUE=1 SF_PLAYER_MOVE=1 \
+            SF_SAVE_RELOAD=1 timeout --kill-after=2s 48s xvfb-run -a \
+            bash rdte/oxce-batch/run-case.sh .out/package \
+            new-battle-briefing-continue .out/evidence/save-load-boundary
+          save_runner=$?
+          SF_INVENTORY_CONFIRM=1 SF_NEXT_TURN_CONTINUE=1 SF_PLAYER_MOVE=1 \
+            SF_ABORT_CONFIRM=1 timeout --kill-after=2s 42s xvfb-run -a \
+            bash rdte/oxce-batch/run-case.sh .out/package \
+            new-battle-briefing-continue .out/evidence/abort-boundary
+          abort_runner=$?
+          node rdte/oxce-batch/boundary-check.mjs save-load \
+            .out/evidence/save-load-boundary .out/evidence/save-load-boundary-receipt.json
+          save_class=$?
+          node rdte/oxce-batch/boundary-check.mjs abort \
+            .out/evidence/abort-boundary .out/evidence/abort-boundary-receipt.json
+          abort_class=$?
+          printf 'Native boundary probes: save runner=%s classified=%s; abort runner=%s classified=%s\n' \
+            "$save_runner" "$save_class" "$abort_runner" "$abort_class" >> "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' 'This is modified synthetic native evidence only; saved unit/TU state parity and original/stock Signal Frontier gameplay remain NOT_QUALIFIED.' >> "$GITHUB_STEP_SUMMARY"
+          if [ "$save_class" -ne 0 ] || [ "$abort_class" -ne 0 ]; then
+            echo '::error::FIRST_NATIVE_MISSION_BOUNDARY_NOT_QUALIFIED; see isolated retained traces'
+            exit 1
+          fi
       - name: Symbolize first native tactical crash using the same verified engine binary
         if: failure()
         shell: bash

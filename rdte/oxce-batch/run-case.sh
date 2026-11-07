@@ -46,6 +46,25 @@ if kill -0 "$pid" 2>/dev/null; then
         printf 'CLICK 320 204\n' >> "$target/commands.txt"
         sleep 3
       fi
+      if [ "${SF_SAVE_RELOAD:-0}" = 1 ]; then
+        sleep 2
+        # Frozen OXCE Options.cpp SDLK_F5=286, SDLK_F9=290.
+        # A command is not success; classify actual Save/Load states and save bytes.
+        printf 'KEY 286\n' >> "$target/commands.txt"
+        sleep 3
+        printf 'KEY 290\n' >> "$target/commands.txt"
+        sleep 4
+      fi
+      if [ "${SF_ABORT_CONFIRM:-0}" = 1 ]; then
+        sleep 2
+        # Frozen BattlescapeState buttons: Abort at (x+240,y+16).
+        # 320x200 logical interface -> 640x400 mailbox coordinates.
+        printf 'CLICK 510 336\n' >> "$target/commands.txt"
+        sleep 2
+        # Frozen AbortMissionState: confirm button x16..136,y110..126.
+        printf 'CLICK 100 236\n' >> "$target/commands.txt"
+        sleep 3
+      fi
       if [ "${SF_BATTLE_END_TURN:-0}" = 1 ]; then
         sleep 3
         # 320x200 logical battlescape: EndTurn (x+240,y)=(240,144).
