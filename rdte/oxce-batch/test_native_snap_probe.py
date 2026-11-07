@@ -17,7 +17,7 @@ def make_save(*,player_tu=64,enemy_hp=24,ammo=4,turn=1,enemy=(5,5,0)):
            {'id':1000000,'faction':1,'position':list(enemy),'tu':48,'health':enemy_hp,'status':0}]
     items=[{'id':0,'type':'STR_RDTE_TOOL','owner':1,'inventoryslot':'STR_RIGHT_HAND','ammoItem':1},
            {'id':1,'type':'STR_RDTE_CELL','ammoqty':ammo}]
-    return {'turn':turn,'selectedUnit':1,'units':units,'items':items}
+    return {'turn':turn,'selectedUnit':1,'width':10,'length':10,'height':2,'units':units,'items':items}
 
 
 def make_case(root, *,post_tu=39,post_ammo=3,post_hp=20):
@@ -56,6 +56,28 @@ class ShotTests(unittest.TestCase):
                             ('user/openxcom.log','first-native-snap-shot/user/openxcom.log')]:
                 (self.root/dst).write_bytes(z.read(src))
         with self.assertRaisesRegex(ValueError,'sequence'):probe.assess(self.root)
+    def test_native_stochastic_selected_spawn_uses_relative_candidate(self):
+        self.modify_battle('pre-shot.asav',lambda b:b['units'][0].update(position=[3,3,0]))
+        b,_=probe.save_game(self.root/'pre-shot.asav')
+        t=probe.target_from_calibration(b)
+        self.assertEqual(t['selectedShooterTile'],[3,3,0])
+        self.assertEqual(t['targetTile'],[3,4,0])
+        self.assertEqual((t['targetMailboxX'],t['targetMailboxY']),(320,204))
+    def test_actual_b75_failed_calibration_now_prepares_relative_target(self):
+        archive=Path('/mnt/data/oxce-native-batch-42342827628.zip')
+        if not archive.is_file():self.skipTest('B75 native pre-shot evidence unavailable')
+        with zipfile.ZipFile(archive) as z:
+            saved=z.read('first-native-snap-shot/pre-shot.asav')
+        (self.root/'pre-shot.asav').write_bytes(saved)
+        b,_=probe.save_game(self.root/'pre-shot.asav')
+        t=probe.target_from_calibration(b)
+        self.assertEqual(t['targetTile'],[3,4,0])
+    def test_native_relative_target_out_of_bounds_rejected(self):
+        self.modify_battle('pre-shot.asav',lambda b:b['units'][0].update(position=[3,9,0]))
+        with self.assertRaisesRegex(ValueError,'outside map'):probe.assess(self.root)
+    def test_native_accepted_shot_requires_shooter_position_unchanged(self):
+        self.modify_battle('post-shot.asav',lambda b:b['units'][0].update(position=[2,3,0]))
+        self.assertFalse(probe.assess(self.root)['nativeShotWithTUAndAmmoSpent'])
     def test_positive_synthetic_contract_still_refuses_full_gameplay(self):
         r=probe.assess(self.root)
         self.assertTrue(r['nativeShotWithTUAndAmmoSpent'])
@@ -83,7 +105,7 @@ class ShotTests(unittest.TestCase):
         with self.assertRaises(ValueError):probe.assess(self.root)
     def test_wrong_enemy_position_blocks_calibration(self):
         self.modify_battle('pre-shot.asav',lambda b:b['units'][1].update(position=[5,4,0]))
-        with self.assertRaisesRegex(ValueError,'drift'):probe.assess(self.root)
+        with self.assertRaisesRegex(ValueError,'hostile placement'):probe.assess(self.root)
     def test_unselected_shooter_blocks_calibration(self):
         self.modify_battle('pre-shot.asav',lambda b:b.update(selectedUnit=77))
         with self.assertRaisesRegex(ValueError,'wrong selected'):probe.assess(self.root)

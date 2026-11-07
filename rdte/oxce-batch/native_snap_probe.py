@@ -74,8 +74,10 @@ def magazine(b):
 
 def target_from_calibration(b):
     player, hostile = unit(b, SHOOTER_ID), unit(b, HOSTILE_ID)
-    if tuple(player['position']) != EXPECTED_PLAYER or tuple(hostile['position']) != EXPECTED_HOSTILE:
-        raise ValueError('drift from independently observed B66 native camera/mission calibration')
+    # The game randomly assigns valid deployment slots per native launch; never
+    # bind today's source-only test to one particular saved start tile.
+    if tuple(hostile['position']) != EXPECTED_HOSTILE:
+        raise ValueError('hostile placement differs from verified original-only scenario')
     if player['faction'] != 0 or hostile['faction'] != 1 or b.get('selectedUnit') != SHOOTER_ID or b.get('turn') != 1:
         raise ValueError('wrong selected unit, faction or starting turn')
     clip_id, ammo = magazine(b)
@@ -83,17 +85,25 @@ def target_from_calibration(b):
     # B74 native first failure: aimed enemy target (5,5) induced 4 TUs of
     # turning and zero ammo decrement. Pinned ProjectileFlyBState can refuse
     # line-of-fire before spendAmmoForAction; do not treat turning as firing.
-    # B75 separately probes the *already real-walk-validated* adjacent floor
-    # tile (2,3) with the identical calibrated engine-local click (320,204).
-    # This isolates whether a true projectile can leave the weapon at all;
-    # damage to the hostile is a later, separately admitted LOS problem.
-    if any(tuple(u.get('position', [])) == CALIBRATED_TILE for u in b['units']):
-        raise ValueError('native near-floor firing target is occupied; do not send click')
+    # B76 RED: B75 spawn was (3,3), not B66 (2,2); the strict guard
+    # correctly stopped before any shot. Derive a *relative* candidate tile
+    # one y-step from the actual selected shooter, not a fixed world position.
+    # Engine-local click is a bounded CAMERA HYPOTHESIS: native ammo/TU proves
+    # any actual shot, not whether the click hit a specific map coordinate.
+    xyz = player['position']
+    dx, dy, dz = [a - b for a,b in zip(CALIBRATED_TILE, EXPECTED_PLAYER)]
+    target = (xyz[0]+dx, xyz[1]+dy, xyz[2]+dz)
+    dims = tuple(b.get(k) for k in ('width','length','height'))
+    if any(type(n) is not int or n<1 for n in dims) or not all(0<=a<d for a,d in zip(target,dims)):
+        raise ValueError('relative native firing target outside map bounds')
+    if any(tuple(u.get('position', [])) == target for u in b['units']):
+        raise ValueError('relative native near-floor target is occupied; do not send click')
     x, y = CALIBRATED_MAILBOX
     if not (24 <= x < 616 and 0 <= y < 288):
-        raise ValueError('derived target outside native tactical map; do not send click')
-    return {'targetMailboxX':x,'targetMailboxY':y,'targetTile':list(CALIBRATED_TILE),
-            'targetIntent':'VALIDATED_ADJACENT_FLOOR_SHOT_NO_HOSTILE_DAMAGE_ASSUMED',
+        raise ValueError('calibrated target outside tactical map; do not send click')
+    return {'targetMailboxX':x,'targetMailboxY':y,'targetTile':list(target),
+            'targetIntent':'CAMERA_RELATIVE_ADJACENT_FLOOR_SHOT_NO_DAMAGE_ASSUMED',
+            'selectedShooterTile':list(xyz), 'calibrationAnchor':list(EXPECTED_PLAYER),
             'calibrationTile':list(CALIBRATED_TILE),'calibrationClick':list(CALIBRATED_MAILBOX),
             'loadedAmmo':ammo,'clipId':clip_id,'sourceOnlyTargetHypothesis':True}
 
@@ -124,7 +134,8 @@ def assess(folder):
     correct_time=b0.get('turn')==1 and b1.get('turn')==1
     ordered_states=(len(saves)>=2 and saves[0]<menu<saves[-1] and
                     any('BattlescapeState' in s for s in states[menu+1:saves[-1]]))
-    native_shot=not first_fatal and ordered_states and correct_time and a_id==b_id and a1==a0-1 and u1['tu']<u0['tu']
+    native_shot=(not first_fatal and ordered_states and correct_time and a_id==b_id
+                 and a1==a0-1 and u1['tu']<u0['tu'] and u1['position']==u0['position'])
     native_damage=h1['health']<h0['health'] or (h0['status']==0 and h1['status']!=0)
     return {'schema':'oxce.synthetic.native-snap-shot.v1',
       'evidenceClass':'ACTUAL_MODIFIED_OXCE_SHOT_AND_DAMAGE_EXPERIMENT',
