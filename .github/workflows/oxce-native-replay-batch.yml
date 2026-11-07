@@ -114,6 +114,8 @@ jobs:
         run: |
           python3 -m unittest -q rdte/oxce-batch/test_save_snapshot_parity.py rdte/oxce-batch/test_restore_state_compare.py rdte/oxce-batch/test_loadout_overlay.py rdte/oxce-batch/test_check_native_loadout.py rdte/oxce-batch/test_native_snap_probe.py
           bash -n rdte/oxce-batch/run-case.sh
+          bash -n rdte/oxce-batch/native-readiness.sh rdte/oxce-batch/test-native-readiness.sh
+          bash rdte/oxce-batch/test-native-readiness.sh
           python3 -m py_compile rdte/oxce-batch/native_snap_probe.py rdte/oxce-batch/test_native_snap_probe.py
           python3 -m py_compile rdte/oxce-batch/save_snapshot_parity.py rdte/oxce-batch/test_save_snapshot_parity.py rdte/oxce-batch/restore_state_compare.py rdte/oxce-batch/test_restore_state_compare.py rdte/oxce-batch/check_native_loadout.py rdte/oxce-batch/test_check_native_loadout.py rdte/oxce-batch/test_loadout_overlay.py
       - name: Execute six independent game-window scenarios using one binary

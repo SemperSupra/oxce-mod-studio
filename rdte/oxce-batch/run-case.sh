@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Runs inside one isolated Xvfb display; same verified executable, separate users.
 set -u
+# State-observed readiness for bounded original-only native replay.
+source "$(dirname -- "${BASH_SOURCE[0]}")/native-readiness.sh"
 package="$1"; scenario="$2"; target="$3"
 mkdir -p "$target"
 cp -a "$package/user" "$target/user"
@@ -20,17 +22,41 @@ SDL_AUDIODRIVER=dummy "$package/openxcom-sf-rdte" \
  -data "$PWD/$package/data" -user "$PWD/$target/user" -config "$PWD/$target/config" \
  > "$target/engine-stdout.log" 2>&1 &
 pid=$!
-sleep 5
+if ! oxce_wait_screen MainMenuState "$pid" "$target/trace.jsonl" 12; then
+  echo 'NATIVE_DRIVER_READINESS_FAIL state=MainMenuState' > "$target/driver-first-failure.txt"
+  kill -TERM "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  exit 6
+fi
+# A screen-class event is not a rendered-frame ACK; allow the UI to draw.
+sleep 1
 if kill -0 "$pid" 2>/dev/null; then
  case "$scenario" in
  boot) ;;
  new-game) printf 'CLICK 220 200\n' >> "$target/commands.txt" ;;
  new-battle) printf 'CLICK 420 200\n' >> "$target/commands.txt" ;;
- new-battle-confirm) printf 'CLICK 420 200\n' >> "$target/commands.txt"; sleep 2; printf 'CLICK 116 368\n' >> "$target/commands.txt" ;;
+ new-battle-confirm)
+  printf 'CLICK 420 200\n' >> "$target/commands.txt"
+  oxce_wait_screen NewBattleState "$pid" "$target/trace.jsonl" 10 || {
+    echo 'NATIVE_DRIVER_READINESS_FAIL state=NewBattleState' >> "$target/driver-first-failure.txt"; exit 6;
+  }
+  sleep 1
+  printf 'CLICK 116 368\n' >> "$target/commands.txt" ;;
  new-battle-briefing-continue)
-  printf 'CLICK 420 200\n' >> "$target/commands.txt"; sleep 2
-  printf 'CLICK 116 368\n' >> "$target/commands.txt"; sleep 2
+  printf 'CLICK 420 200\n' >> "$target/commands.txt"
+  oxce_wait_screen NewBattleState "$pid" "$target/trace.jsonl" 10 || {
+    echo 'NATIVE_DRIVER_READINESS_FAIL state=NewBattleState' >> "$target/driver-first-failure.txt"; exit 6;
+  }
+  sleep 1
+  printf 'CLICK 116 368\n' >> "$target/commands.txt"
+  oxce_wait_screen BriefingState "$pid" "$target/trace.jsonl" 10 || {
+    echo 'NATIVE_DRIVER_READINESS_FAIL state=BriefingState' >> "$target/driver-first-failure.txt"; exit 6;
+  }
+  sleep 1
   printf 'CLICK 320 346\n' >> "$target/commands.txt"
+  oxce_wait_screen InventoryState "$pid" "$target/trace.jsonl" 10 || {
+    echo 'NATIVE_DRIVER_READINESS_FAIL state=InventoryState' >> "$target/driver-first-failure.txt"; exit 6;
+  }
   if [ "${SF_INVENTORY_CONFIRM:-0}" = 1 ]; then
     sleep 2
     # Pinned InventoryState::_btnOk: x237..272, y1..23 on 320x200
