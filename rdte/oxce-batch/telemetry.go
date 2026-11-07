@@ -14,6 +14,8 @@ type TacticalAssessment struct{
  PlayerObserved bool
  EnemyObserved bool
  PlayerMoveObserved bool
+ PlayerTUDecreased bool
+ PlayerMovementSpentTU bool
  EnemyActionObserved bool
  EnemyMoved bool
  EnemyTUDecreased bool
@@ -54,7 +56,11 @@ func assessTacticalTelemetry(raw []byte)TacticalAssessment{
     was,ok:=before[u.ID];if !ok||was.Faction!=u.Faction{continue}
     moved:=was.X!=u.X||was.Y!=u.Y||was.Z!=u.Z
     spent:=u.TU<was.TU
-    if f.Side==0&&u.Faction==0&&moved{out.PlayerMoveObserved=true}
+    if f.Side==0&&u.Faction==0&&f.Turn==prev.Turn{
+     if moved{out.PlayerMoveObserved=true}
+     if spent{out.PlayerTUDecreased=true}
+     if moved&&spent{out.PlayerMovementSpentTU=true}
+    }
     if f.Side==1&&u.Faction==1&&(moved||spent){
      out.EnemyActionObserved=true
      if moved{out.EnemyMoved=true}
