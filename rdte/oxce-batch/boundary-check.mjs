@@ -37,7 +37,7 @@ function listManualSaves(root) {
       const stat = fs.lstatSync(full);
       if (stat.isSymbolicLink() || (!stat.isFile() && !stat.isDirectory())) throw Error('untrusted save tree object');
       if (stat.isDirectory()) {walk(full);continue;}
-      if (!/\.sav$/i.test(name) || /\.asav$/i.test(name)) continue;
+      if (name !== '_quick_.asav') continue; // exact SavedGame::QUICKSAVE, never autosave
       if (results.length >= MAX_SAVES) throw Error('too many candidate save files');
       if (stat.size < 512 || stat.size > 64*1024*1024) throw Error(`invalid manual save file size: ${name}`);
       const bytes = fs.readFileSync(full);

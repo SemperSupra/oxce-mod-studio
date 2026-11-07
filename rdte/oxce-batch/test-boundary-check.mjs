@@ -16,7 +16,7 @@ function fixture(t,kind='save-load') {
     ['MainMenuState','BattlescapeState','AbortMissionState','DebriefingState'];
   fs.writeFileSync(path.join(root,'trace.jsonl'), states.map(s=>JSON.stringify({event:'screen-class',class:'N8OpenXcom'+s})).join('\n')+'\n');
   fs.writeFileSync(path.join(root,'commands.txt'),kind==='save-load'?'KEY 286\nKEY 290\n':'CLICK 510 336\nCLICK 100 236\n');
-  fs.writeFileSync(path.join(user,'_quicksave_.sav'), 'X'.repeat(2048));
+  fs.writeFileSync(path.join(user,'_quick_.asav'), 'X'.repeat(2048));
   return root;
 }
 test('manual save/load UI and real save bytes evidence, no full gameplay promotion',t=>{
@@ -34,7 +34,7 @@ test('commands alone without state evidence cannot qualify',t=>{
   assert.equal(evaluateBoundary(root,'save-load').saveReloadQualified,false);
 });
 test('only autobattle save never qualifies manual save',t=>{
-  const root=fixture(t);fs.unlinkSync(path.join(root,'user/rdte-synthetic-master/_quicksave_.sav'));
+  const root=fixture(t);fs.unlinkSync(path.join(root,'user/rdte-synthetic-master/_quick_.asav'));
   fs.writeFileSync(path.join(root,'user/rdte-synthetic-master/_autobattle_.asav'),'Y'.repeat(2000));
   assert.equal(evaluateBoundary(root,'save-load').saveReloadQualified,false);
 });
@@ -56,7 +56,7 @@ test('malformed trace fails closed',t=>{
   assert.throws(()=>evaluateBoundary(root,'save-load'),/malformed native trace/);
 });
 test('symlinked manual save rejected',t=>{
-  const root=fixture(t);const target=path.join(root,'user/rdte-synthetic-master/_quicksave_.sav');
+  const root=fixture(t);const target=path.join(root,'user/rdte-synthetic-master/_quick_.asav');
   fs.symlinkSync(target,path.join(root,'user/rdte-synthetic-master/other.sav'));
   assert.throws(()=>evaluateBoundary(root,'save-load'),/untrusted save tree object/);
 });
