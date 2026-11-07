@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 const classifier=fileURLToPath(new URL('./classify.mjs',import.meta.url));
 const goodLog='Active mods:\n - rdte-synthetic-master\nLoading rulesets...\nLoading rulesets done.\nLoading ended.\n';
-const goodPhase='configure_exit=0\nbuild_exit=0\nnative_launch_attempted=true\nengine_launch_exit=124\n';
+const goodPhase='configure_exit=0\nbuild_exit=0\nseal_verify_exit=0\nnative_launch_attempted=true\nengine_launch_exit=124\n';
 function check(label,log,phase,expected) {
   const dir=mkdtempSync(join(tmpdir(),'oxce-classify-'));
   try {
@@ -31,6 +31,19 @@ test('complete synthetic engine load + watchdog is loader-only, not gameplay',()
   assert.equal(v.nativeLaunchAttempted,true);
   assert.equal(v.exitStatus,'124');
   assert.equal(v.firstError,null);
+});
+test('verified cache is not confused with actual compilation',()=>{
+  const cached=goodPhase.replace('configure_exit=0\nbuild_exit=0\nseal_verify_exit=0\n',
+    'cache_verify_exit=0\nnative_binary_origin=VERIFIED_SCOPED_CACHE\n');
+  const v=check('valid-cache',goodLog,cached,true);
+  assert.equal(v.actualEngineBuilt,false);
+  assert.equal(v.nativeBinaryVerifiedFromCache,true);
+});
+test('unsealed build and unverified cache must fail loader qualification',()=>{
+  check('unsealed',goodLog,goodPhase.replace('seal_verify_exit=0\n',''),false);
+  const bad=goodPhase.replace('configure_exit=0\nbuild_exit=0\nseal_verify_exit=0\n',
+    'cache_verify_exit=1\n');
+  check('failed-cache',goodLog,bad,false);
 });
 test('late engine ERROR after load marker remains RED',()=>{
   const v=check('error',goodLog+'[ERROR] Sound 1 in GEO.CAT not found\n',goodPhase,false);

@@ -16,6 +16,8 @@ const result={
   originalGameAssetsIncluded:false,
   cmakeConfigured:/configure_exit=0/.test(phase),
   actualEngineBuilt:/(?:^|\n)build_exit=0(?:\n|$)/.test(phase),
+  nativeBuildSealedThisRun:/(?:^|\n)seal_verify_exit=0(?:\n|$)/.test(phase),
+  nativeBinaryVerifiedFromCache:/(?:^|\n)cache_verify_exit=0(?:\n|$)/.test(phase),
   nativeLaunchAttempted:/(?:^|\n)native_launch_attempted=true(?:\n|$)/.test(phase),
   syntheticMasterActivated:/Active mods:[\s\S]*rdte-synthetic-master/.test(nativeLog),
   sourceRulesetLoadReached:nativeLog.includes('Loading rulesets...'),
@@ -33,6 +35,7 @@ result.nativeLoaderQualified = result.actualEngineBuilt && result.nativeLaunchAt
   result.syntheticMasterActivated && result.sourceRulesetLoadReached &&
   result.rulesetLoadCompleted && result.engineLoadCompleted &&
   !result.firstError && !result.fatalResourceOrEngineLog &&
+  ((result.actualEngineBuilt && result.nativeBuildSealedThisRun) || result.nativeBinaryVerifiedFromCache) &&
   (result.exitStatus === '0' || result.exitStatus === '124');
 result.nativeLoaderStatus = result.nativeLoaderQualified ? 'SOURCE_NATIVE_LOAD_PASS' : 'NATIVE_LOAD_INCOMPLETE_OR_ERROR';
 mkdirSync(root,{recursive:true});
