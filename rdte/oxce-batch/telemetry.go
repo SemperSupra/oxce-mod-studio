@@ -44,9 +44,17 @@ func assessTacticalTelemetry(raw []byte)TacticalAssessment{
  if bad>0{out.FirstFailure=fmt.Sprintf("malformed-native-snapshot:%d",bad);return out}
  if len(frames)<2{out.FirstFailure="insufficient-real-native-snapshots";return out}
  var prev *TacticalFrame
+ // OXCE UnitWalkBState can spend TU before reporting the new tile position.
+ // Only one immediately adjacent snapshot for the *same player unit and turn*
+ // may join a spend with movement; never join across faction/turn boundaries.
+ type spendSample struct {frame int; turn int}
+ pendingPlayerSpend:=map[int]spendSample{}
  sawEnemySide:=false
  for i:=range frames{
   f:=&frames[i]
+  if prev!=nil&&(prev.Side!=f.Side||prev.Turn!=f.Turn){
+   clear(pendingPlayerSpend)
+  }
   if f.Side==1{sawEnemySide=true;out.HostileFactionTurnObserved=true}
   if sawEnemySide&&f.Side==0&&f.Turn>=2{out.ReturnedToPlayerTurn=true}
   for _,u:=range f.Units{if u.Faction==0{out.PlayerObserved=true};if u.Faction==1{out.EnemyObserved=true}}
@@ -59,7 +67,14 @@ func assessTacticalTelemetry(raw []byte)TacticalAssessment{
     if f.Side==0&&u.Faction==0&&f.Turn==prev.Turn{
      if moved{out.PlayerMoveObserved=true}
      if spent{out.PlayerTUDecreased=true}
-     if moved&&spent{out.PlayerMovementSpentTU=true}
+     if moved{
+      prior,ok:=pendingPlayerSpend[u.ID]
+      if spent||(ok&&prior.turn==f.Turn&&prior.frame==i-1){
+       out.PlayerMovementSpentTU=true
+      }
+      delete(pendingPlayerSpend,u.ID)
+     }
+     if spent&&!moved{pendingPlayerSpend[u.ID]=spendSample{frame:i,turn:f.Turn}}
     }
     if f.Side==1&&u.Faction==1&&(moved||spent){
      out.EnemyActionObserved=true
