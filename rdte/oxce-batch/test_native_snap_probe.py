@@ -28,7 +28,7 @@ def make_case(root, *,post_tu=39,post_ammo=3,post_hp=20):
     states=['MainMenuState','BattlescapeState','SaveGameState','BattlescapeState',
             'ActionMenuState','BattlescapeState','SaveGameState','BattlescapeState']
     (root/'trace.jsonl').write_text(''.join(json.dumps({'event':'screen-class','class':'N8OpenXcom'+s+'E'})+'\n' for s in states))
-    (root/'commands.txt').write_text('KEY 286\nKEY 101\nKEY 50\nCLICK 352 284\nKEY 286\n')
+    (root/'commands.txt').write_text('KEY 286\nKEY 101\nKEY 50\nCLICK 320 204\nKEY 286\n')
     (root/'user').mkdir(exist_ok=True)
     (root/'user'/'openxcom.log').write_text('[INFO] synthetic test doubles only\n')
     return root
@@ -40,7 +40,22 @@ class ShotTests(unittest.TestCase):
         self.root=make_case(Path(self.tmp.name)/'native')
     def test_map_click_calibrated_from_source_and_actual_successful_walk(self):
         b,_=probe.save_game(self.root/'pre-shot.asav')
-        self.assertEqual((probe.target_from_calibration(b)['targetMailboxX'],probe.target_from_calibration(b)['targetMailboxY']),(352,284))
+        self.assertEqual((probe.target_from_calibration(b)['targetMailboxX'],probe.target_from_calibration(b)['targetMailboxY']),(320,204))
+    def test_nearby_floor_target_rejects_any_occupying_unit(self):
+        self.modify_battle('pre-shot.asav',lambda b:b['units'].append(
+            {'id':2,'faction':0,'position':[2,3,0],'tu':60,'health':35,'status':0}))
+        with self.assertRaisesRegex(ValueError,'occupied'):probe.assess(self.root)
+    def test_previous_real_native_target_turn_is_not_misclassified_as_shot(self):
+        archive=Path('/mnt/data/oxce-native-batch-42341948390.zip')
+        if not archive.is_file():self.skipTest('B74 real native RED artifact not mounted')
+        with zipfile.ZipFile(archive) as z:
+            for dst,src in [('pre-shot.asav','first-native-snap-shot/pre-shot.asav'),
+                            ('post-shot.asav','first-native-snap-shot/post-shot.asav'),
+                            ('trace.jsonl','first-native-snap-shot/trace.jsonl'),
+                            ('commands.txt','first-native-snap-shot/commands.txt'),
+                            ('user/openxcom.log','first-native-snap-shot/user/openxcom.log')]:
+                (self.root/dst).write_bytes(z.read(src))
+        with self.assertRaisesRegex(ValueError,'sequence'):probe.assess(self.root)
     def test_positive_synthetic_contract_still_refuses_full_gameplay(self):
         r=probe.assess(self.root)
         self.assertTrue(r['nativeShotWithTUAndAmmoSpent'])
@@ -76,7 +91,7 @@ class ShotTests(unittest.TestCase):
         p=self.root/'trace.jsonl';p.write_text(''.join(s+'\n' for s in p.read_text().splitlines() if 'ActionMenuState' not in s))
         self.assertFalse(probe.assess(self.root)['nativeShotWithTUAndAmmoSpent'])
     def test_wrong_keyboard_or_order_fails(self):
-        p=self.root/'commands.txt';p.write_text('KEY 286\nKEY 50\nKEY 101\nCLICK 352 284\nKEY 286\n')
+        p=self.root/'commands.txt';p.write_text('KEY 286\nKEY 50\nKEY 101\nCLICK 320 204\nKEY 286\n')
         with self.assertRaisesRegex(ValueError,'sequence'):probe.assess(self.root)
     def test_missing_native_log_fails(self):
         (self.root/'user'/'openxcom.log').unlink()

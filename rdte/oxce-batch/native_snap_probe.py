@@ -80,12 +80,20 @@ def target_from_calibration(b):
         raise ValueError('wrong selected unit, faction or starting turn')
     clip_id, ammo = magazine(b)
     if ammo < 1: raise ValueError('empty native magazine')
-    dx, dy = hostile['position'][0]-CALIBRATED_TILE[0], hostile['position'][1]-CALIBRATED_TILE[1]
-    x = CALIBRATED_MAILBOX[0] + (dx-dy)*SOURCE_TILE_WIDTH
-    y = CALIBRATED_MAILBOX[1] + (dx+dy)*(SOURCE_TILE_WIDTH//2)
+    # B74 native first failure: aimed enemy target (5,5) induced 4 TUs of
+    # turning and zero ammo decrement. Pinned ProjectileFlyBState can refuse
+    # line-of-fire before spendAmmoForAction; do not treat turning as firing.
+    # B75 separately probes the *already real-walk-validated* adjacent floor
+    # tile (2,3) with the identical calibrated engine-local click (320,204).
+    # This isolates whether a true projectile can leave the weapon at all;
+    # damage to the hostile is a later, separately admitted LOS problem.
+    if any(tuple(u.get('position', [])) == CALIBRATED_TILE for u in b['units']):
+        raise ValueError('native near-floor firing target is occupied; do not send click')
+    x, y = CALIBRATED_MAILBOX
     if not (24 <= x < 616 and 0 <= y < 288):
         raise ValueError('derived target outside native tactical map; do not send click')
-    return {'targetMailboxX':x,'targetMailboxY':y,'targetTile':hostile['position'],
+    return {'targetMailboxX':x,'targetMailboxY':y,'targetTile':list(CALIBRATED_TILE),
+            'targetIntent':'VALIDATED_ADJACENT_FLOOR_SHOT_NO_HOSTILE_DAMAGE_ASSUMED',
             'calibrationTile':list(CALIBRATED_TILE),'calibrationClick':list(CALIBRATED_MAILBOX),
             'loadedAmmo':ammo,'clipId':clip_id,'sourceOnlyTargetHypothesis':True}
 
