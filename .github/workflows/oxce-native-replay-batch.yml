@@ -13,7 +13,7 @@ concurrency:
 jobs:
   independent-replay:
     runs-on: ubuntu-22.04
-    timeout-minutes: 12
+    timeout-minutes: 13
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5 node24
         with:
@@ -112,8 +112,9 @@ jobs:
       - name: Validate save-state semantic classifier with adverse source fixtures
         shell: bash
         run: |
-          python3 -m unittest -q rdte/oxce-batch/test_save_snapshot_parity.py rdte/oxce-batch/test_restore_state_compare.py rdte/oxce-batch/test_loadout_overlay.py rdte/oxce-batch/test_check_native_loadout.py
+          python3 -m unittest -q rdte/oxce-batch/test_save_snapshot_parity.py rdte/oxce-batch/test_restore_state_compare.py rdte/oxce-batch/test_loadout_overlay.py rdte/oxce-batch/test_check_native_loadout.py rdte/oxce-batch/test_native_snap_probe.py
           bash -n rdte/oxce-batch/run-case.sh
+          python3 -m py_compile rdte/oxce-batch/native_snap_probe.py rdte/oxce-batch/test_native_snap_probe.py
           python3 -m py_compile rdte/oxce-batch/save_snapshot_parity.py rdte/oxce-batch/test_save_snapshot_parity.py rdte/oxce-batch/restore_state_compare.py rdte/oxce-batch/test_restore_state_compare.py rdte/oxce-batch/check_native_loadout.py rdte/oxce-batch/test_check_native_loadout.py rdte/oxce-batch/test_loadout_overlay.py
       - name: Execute six independent game-window scenarios using one binary
         shell: bash
@@ -381,6 +382,35 @@ jobs:
             'Real native modified-engine player item + accessible cell ownership PASS; '+
             'loaded ammunition, firing/damage, successful mission/debrief, stock/OXCE '+
             'original media and human Q4/Q5 NOT_QUALIFIED.\n');
+          NODE
+      - name: Probe one real Snap Shot with loaded ammo and TU expenditure
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Fresh original-only modified-OXCE process, existing gates unchanged.
+          SF_INVENTORY_CONFIRM=1 SF_NEXT_TURN_CONTINUE=1 SF_SNAP_FIRE=1 \
+            timeout --kill-after=2s 48s xvfb-run -a \
+            bash rdte/oxce-batch/run-case.sh .out/armed-package \
+            new-battle-briefing-continue .out/evidence/first-native-snap-shot
+          python3 rdte/oxce-batch/native_snap_probe.py qualify \
+            .out/evidence/first-native-snap-shot \
+            .out/evidence/first-native-snap-shot-receipt.json
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const r=JSON.parse(fs.readFileSync('.out/evidence/first-native-snap-shot-receipt.json','utf8'));
+          if (r.nativeShotWithTUAndAmmoSpent !== true ||
+              r.winningDebriefQualified !== false ||
+              r.gameplayQualified !== false ||
+              r.stockEngineQualified !== false ||
+              r.signalFrontierMvpQualified !== false) {
+            throw Error('FIRST_NATIVE_SHOT_AMMO_TU_GATE_NOT_MET');
+          }
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+            'Actual modified OXCE single snap: clip '+r.ammoBefore+' to '+r.ammoAfter+
+            ', player TU '+r.playerTUBefore+' to '+r.playerTUAfter+
+            ', enemy HP '+r.enemyHealthBefore+' to '+r.enemyHealthAfter+
+            '; enemy damage observed='+r.nativeEnemyDamageObserved+
+            '. Victory/retail/stock/selected game/Q4/Q5 NOT_QUALIFIED.\n');
           NODE
       - name: Symbolize first native tactical crash using the same verified engine binary
         if: failure()

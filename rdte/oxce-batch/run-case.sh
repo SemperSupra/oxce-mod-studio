@@ -52,6 +52,43 @@ if kill -0 "$pid" 2>/dev/null; then
         printf 'CLICK 320 204\n' >> "$target/commands.txt"
         sleep 3
       fi
+      if [ "${SF_SNAP_FIRE:-0}" = 1 ]; then
+        # Native shot probe: original-only, isolated, and no player-movement.
+        # Target comes from the real B66 tile-click calibration + Camera.cpp.
+        test "${SF_PLAYER_MOVE:-0}" != 1 && test "${SF_SAVE_RELOAD:-0}" != 1 || {
+          echo 'SHOT_PROBE_REQUIRES_FRESH_UNMOVED_SESSION' >&2; exit 6;
+        }
+        sleep 2
+        quick="$target/user/rdte-synthetic-master/_quick_.asav"
+        test ! -e "$quick" || { echo 'STALE_SHOT_BASELINE' >&2; exit 6; }
+        printf 'KEY 286\n' >> "$target/commands.txt"
+        sleep 2
+        test -s "$quick" && test ! -L "$quick" || {
+          echo 'NO_NATIVE_PRE_SHOT_QUICKSAVE' >&2; exit 6;
+        }
+        cp "$quick" "$target/pre-shot.asav"
+        python3 rdte/oxce-batch/native_snap_probe.py target \
+          "$target/pre-shot.asav" "$target/shot-target.json" || exit 6
+        read -r shot_x shot_y <<< "$(python3 -c \
+          'import json,sys;x=json.load(open(sys.argv[1]));print(x["targetMailboxX"],x["targetMailboxY"])' \
+          "$target/shot-target.json")"
+        printf 'KEY 101\n' >> "$target/commands.txt"
+        sleep 2
+        grep -q 'ActionMenuState' "$target/trace.jsonl" || {
+          echo 'RIGHT_HAND_ACTION_MENU_NOT_OBSERVED' >&2; exit 6;
+        }
+        # Pinned keyBattleActionItem2=SDLK_2=50 selects Snap Shot.
+        printf 'KEY 50\n' >> "$target/commands.txt"
+        sleep 2
+        printf 'CLICK %s %s\n' "$shot_x" "$shot_y" >> "$target/commands.txt"
+        sleep 4
+        printf 'KEY 286\n' >> "$target/commands.txt"
+        sleep 3
+        test -s "$quick" && test ! -L "$quick" || {
+          echo 'NO_NATIVE_POST_SHOT_QUICKSAVE' >&2; exit 6;
+        }
+        cp "$quick" "$target/post-shot.asav"
+      fi
       if [ "${SF_SAVE_RELOAD:-0}" = 1 ]; then
         sleep 2
         # Actual SDL1 F5/286; only native SaveGameState and save bytes qualify.
