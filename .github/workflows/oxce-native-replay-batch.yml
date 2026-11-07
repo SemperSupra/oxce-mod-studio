@@ -108,7 +108,12 @@ jobs:
           sudo apt-get update -qq
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             libsdl1.2debian libsdl-image1.2 libsdl-gfx1.2-5 libsdl-mixer1.2 \
-            libyaml-cpp0.7 libboost-system1.74.0 xvfb xauth imagemagick gdb
+            libyaml-cpp0.7 libboost-system1.74.0 xvfb xauth imagemagick gdb python3-yaml
+      - name: Validate save-state semantic classifier with adverse source fixtures
+        shell: bash
+        run: |
+          python3 -m unittest -q rdte/oxce-batch/test_save_snapshot_parity.py
+          python3 -m py_compile rdte/oxce-batch/save_snapshot_parity.py rdte/oxce-batch/test_save_snapshot_parity.py
       - name: Execute six independent game-window scenarios using one binary
         shell: bash
         run: |
@@ -282,6 +287,32 @@ jobs:
             echo '::error::FIRST_NATIVE_MISSION_BOUNDARY_NOT_QUALIFIED; see isolated retained traces'
             exit 1
           fi
+      - name: Verify actual quick-save contents against last pre-reload native tactical snapshot
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=.out/evidence/save-load-boundary
+          test -s "$SRC/user/rdte-synthetic-master/_quick_.asav"
+          test -s "$SRC/battle.jsonl"
+          python3 rdte/oxce-batch/save_snapshot_parity.py \
+            "$SRC/user/rdte-synthetic-master/_quick_.asav" \
+            "$SRC/battle.jsonl" \
+            .out/evidence/save-snapshot-parity-receipt.json
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const r=JSON.parse(fs.readFileSync('.out/evidence/save-snapshot-parity-receipt.json','utf8'));
+          if (!r.savedSnapshotEqualsLastNativeSnapshot ||
+              r.loadedStateSemanticsQualified !== false ||
+              r.gameplayQualified !== false || r.stockEngineQualified !== false ||
+              r.missingSavedUnitIds.length || r.extraSavedUnitIds.length ||
+              r.differentUnitIds.length || r.snapshots < 2 || r.savedUnits < 1) {
+            throw Error('FAIL_CLOSED: saved snapshot parity or scope boundary');
+          }
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+            'Actual OXCE F5 saved-unit/TU/health/status match the last pre-F9 native snapshot; '+
+            'post-F9 restored state remains NOT_QUALIFIED.\n');
+          NODE
       - name: Symbolize first native tactical crash using the same verified engine binary
         if: failure()
         shell: bash
