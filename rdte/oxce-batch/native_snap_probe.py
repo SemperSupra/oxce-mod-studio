@@ -19,7 +19,6 @@ CALIBRATED_TILE = (2, 3, 0)
 CALIBRATED_MAILBOX = (320, 204)  # real player-walk click from B66
 SOURCE_TILE_WIDTH = 32  # pinned Camera.cpp projection, 2x engine-local mailbox
 EXPECTED_PLAYER = (2, 2, 0)
-EXPECTED_HOSTILE = (5, 5, 0)
 
 
 def plain_file(path, limit):
@@ -76,8 +75,9 @@ def target_from_calibration(b):
     player, hostile = unit(b, SHOOTER_ID), unit(b, HOSTILE_ID)
     # The game randomly assigns valid deployment slots per native launch; never
     # bind today's source-only test to one particular saved start tile.
-    if tuple(hostile['position']) != EXPECTED_HOSTILE:
-        raise ValueError('hostile placement differs from verified original-only scenario')
+    # Hostile deployment is randomized too. Accept any unique, bounded
+    # hostile coordinate from the same authentic first-party native save.
+    # Targeting in this experiment is a separate, unoccupied *floor* tile.
     if player['faction'] != 0 or hostile['faction'] != 1 or b.get('selectedUnit') != SHOOTER_ID or b.get('turn') != 1:
         raise ValueError('wrong selected unit, faction or starting turn')
     clip_id, ammo = magazine(b)
@@ -94,8 +94,13 @@ def target_from_calibration(b):
     dx, dy, dz = [a - b for a,b in zip(CALIBRATED_TILE, EXPECTED_PLAYER)]
     target = (xyz[0]+dx, xyz[1]+dy, xyz[2]+dz)
     dims = tuple(b.get(k) for k in ('width','length','height'))
-    if any(type(n) is not int or n<1 for n in dims) or not all(0<=a<d for a,d in zip(target,dims)):
-        raise ValueError('relative native firing target outside map bounds')
+    if any(type(n) is not int or n<1 for n in dims):
+        raise ValueError('invalid native map dimensions')
+    for role, pos in [('shooter',xyz),('hostile',hostile['position']),('target',target)]:
+        if any(type(n) is not int for n in pos) or not all(0<=a<d for a,d in zip(pos,dims)):
+            raise ValueError(f'{role} outside map bounds')
+    if tuple(xyz) == tuple(hostile['position']):
+        raise ValueError('hostile and shooter positions are not distinct')
     if any(tuple(u.get('position', [])) == target for u in b['units']):
         raise ValueError('relative native near-floor target is occupied; do not send click')
     x, y = CALIBRATED_MAILBOX

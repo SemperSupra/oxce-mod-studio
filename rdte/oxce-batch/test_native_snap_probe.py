@@ -78,6 +78,33 @@ class ShotTests(unittest.TestCase):
     def test_native_accepted_shot_requires_shooter_position_unchanged(self):
         self.modify_battle('post-shot.asav',lambda b:b['units'][0].update(position=[2,3,0]))
         self.assertFalse(probe.assess(self.root)['nativeShotWithTUAndAmmoSpent'])
+    def test_actual_b77_random_hostile_spawn_passes_dynamic_target_admission(self):
+        archive=Path('/mnt/data/oxce-native-batch-42344171637.zip')
+        if not archive.is_file():self.skipTest('B77 authentic native ZIP unavailable')
+        with zipfile.ZipFile(archive) as z:
+            save=z.read('first-native-snap-shot/pre-shot.asav')
+        (self.root/'pre-shot.asav').write_bytes(save)
+        b,_=probe.save_game(self.root/'pre-shot.asav')
+        self.assertEqual(probe.unit(b,probe.HOSTILE_ID)['position'],[4,4,0])
+        self.assertEqual(probe.target_from_calibration(b)['targetTile'],[2,3,0])
+    def test_hostile_out_of_bounds_fails_closed(self):
+        self.modify_battle('pre-shot.asav',lambda b:b['units'][1].update(position=[10,4,0]))
+        with self.assertRaisesRegex(ValueError,'hostile outside map'):probe.assess(self.root)
+    def test_player_out_of_bounds_fails_closed(self):
+        self.modify_battle('pre-shot.asav',lambda b:b['units'][0].update(position=[-1,2,0]))
+        with self.assertRaisesRegex(ValueError,'shooter outside map'):probe.assess(self.root)
+    def test_illegal_duplicate_player_hostile_tile_fails(self):
+        self.modify_battle('pre-shot.asav',lambda b:b['units'][1].update(position=[2,2,0]))
+        with self.assertRaisesRegex(ValueError,'not distinct'):probe.assess(self.root)
+    def test_hostile_faction_mismatch_fails(self):
+        self.modify_battle('pre-shot.asav',lambda b:b['units'][1].update(faction=0))
+        with self.assertRaisesRegex(ValueError,'wrong selected unit'):probe.assess(self.root)
+    def test_hostile_blocks_target_tile(self):
+        self.modify_battle('pre-shot.asav',lambda b:b['units'][1].update(position=[2,3,0]))
+        with self.assertRaisesRegex(ValueError,'occupied'):probe.assess(self.root)
+    def test_malformed_native_hostile_coordinate_fails(self):
+        self.modify_battle('pre-shot.asav',lambda b:b['units'][1].update(position=['4',4,0]))
+        with self.assertRaisesRegex(ValueError,'hostile outside map'):probe.assess(self.root)
     def test_positive_synthetic_contract_still_refuses_full_gameplay(self):
         r=probe.assess(self.root)
         self.assertTrue(r['nativeShotWithTUAndAmmoSpent'])
@@ -103,9 +130,9 @@ class ShotTests(unittest.TestCase):
     def test_different_clip_fails_closed(self):
         self.modify_battle('post-shot.asav',lambda b:b['items'][0].update(ammoItem=123))
         with self.assertRaises(ValueError):probe.assess(self.root)
-    def test_wrong_enemy_position_blocks_calibration(self):
-        self.modify_battle('pre-shot.asav',lambda b:b['units'][1].update(position=[5,4,0]))
-        with self.assertRaisesRegex(ValueError,'hostile placement'):probe.assess(self.root)
+    def test_valid_hostile_position_is_not_hardcoded(self):
+        self.modify_battle('pre-shot.asav',lambda b:b['units'][1].update(position=[4,4,0]))
+        self.assertEqual(probe.assess(self.root)['calibration']['targetTile'],[2,3,0])
     def test_unselected_shooter_blocks_calibration(self):
         self.modify_battle('pre-shot.asav',lambda b:b.update(selectedUnit=77))
         with self.assertRaisesRegex(ValueError,'wrong selected'):probe.assess(self.root)
