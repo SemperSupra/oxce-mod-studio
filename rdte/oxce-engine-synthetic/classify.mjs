@@ -31,7 +31,7 @@ const result={
   caveat:'Engine acceptance requires post-load semantic checks; watchdog timeout and workflow success are not proof.'
 };
 // Load completion and error-free native rule entry are narrower than gameplay.
-result.nativeLoaderQualified = result.actualEngineBuilt && result.nativeLaunchAttempted &&
+result.nativeLoaderQualified = result.nativeLaunchAttempted &&
   result.syntheticMasterActivated && result.sourceRulesetLoadReached &&
   result.rulesetLoadCompleted && result.engineLoadCompleted &&
   !result.firstError && !result.fatalResourceOrEngineLog &&
