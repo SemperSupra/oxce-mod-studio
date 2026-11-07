@@ -39,6 +39,13 @@ if kill -0 "$pid" 2>/dev/null; then
       else
         printf 'CLICK 320 200\n' >> "$target/commands.txt"
       fi
+      if [ "${SF_PLAYER_MOVE:-0}" = 1 ]; then
+        sleep 2
+        # Native first-action probe: click vacant (1,2) next to player at (2,2).
+        # Confirm actual position/TU from engine data, never command text alone.
+        printf 'CLICK 320 204\n' >> "$target/commands.txt"
+        sleep 3
+      fi
       if [ "${SF_BATTLE_END_TURN:-0}" = 1 ]; then
         sleep 3
         # 320x200 logical battlescape: EndTurn (x+240,y)=(240,144).

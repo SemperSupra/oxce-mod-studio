@@ -228,6 +228,33 @@ jobs:
         run: |
           ./.out-inspect --tactical .out/evidence/second-turn-confirm/battle.jsonl .out/evidence/tactical-unit-delta-receipt.json
           node -e 'const x=require("./.out/evidence/tactical-unit-delta-receipt.json");if(x.GameplayQualified||!x.PlayerObserved||!x.EnemyObserved||!x.HostileFactionTurnObserved||!x.EnemyActionObserved||x.FirstFailure)process.exit(1)'
+      - name: Demand actual player move with same-unit TU cost in one native turn
+        shell: bash
+        run: |
+          set -euo pipefail
+          SF_INVENTORY_CONFIRM=1 SF_NEXT_TURN_CONTINUE=1 SF_PLAYER_MOVE=1 SF_BATTLE_END_TURN=1 \
+            SF_SECOND_NEXT_TURN_CONTINUE=1 timeout --kill-after=2s 42s xvfb-run -a \
+            bash rdte/oxce-batch/run-case.sh \
+            .out/package new-battle-briefing-continue .out/evidence/player-move-tactical || true
+          ./.out-inspect --tactical .out/evidence/player-move-tactical/battle.jsonl \
+            .out/evidence/player-action-tactical-receipt.json
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const receipt=JSON.parse(fs.readFileSync('.out/evidence/player-action-tactical-receipt.json','utf8'));
+          const commands=fs.readFileSync('.out/evidence/player-move-tactical/commands.txt','utf8');
+          const valid=commands.includes('CLICK 320 204') &&
+            receipt.MalformedFrames===0 && receipt.FirstFailure==='' &&
+            receipt.PlayerMoveObserved && receipt.PlayerTUDecreased &&
+            receipt.PlayerMovementSpentTU && receipt.EnemyActionObserved &&
+            !receipt.GameplayQualified;
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+            'Exact native player action: '+(valid?'player position/TU delta verified':'RED: player move/TU proof missing')+
+            '; gameplay/debrief/save and human acceptance remain NOT_QUALIFIED.\n');
+          if (!valid) {
+            console.error('FIRST_PLAYER_MOVEMENT_GATE_NOT_MET: '+JSON.stringify(receipt));
+            process.exit(1);
+          }
+          NODE
       - name: Symbolize first native tactical crash using the same verified engine binary
         if: failure()
         shell: bash
