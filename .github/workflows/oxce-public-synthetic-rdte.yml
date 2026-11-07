@@ -34,6 +34,7 @@ jobs:
         run: |
           python3 rdte/oxce-engine-synthetic/engine_selector.py --self-test
           node --test rdte/oxce-engine-synthetic/classify.test.mjs
+          node --test rdte/oxce-engine-synthetic/test-native-footprint.mjs
       - id: diff
         name: Check entire source-closure diff against pinned PR base, not just last commit
         shell: bash
@@ -270,6 +271,31 @@ jobs:
           else
             echo "::error::No verified current build or scoped cached binary"; exit 1
           fi
+      - name: Test actual pinned engine startup with one synthetic resource group removed per run
+        shell: bash
+        run: |
+          set -euo pipefail
+          node rdte/oxce-engine-synthetic/native-footprint.mjs \
+            "$PWD/.out/synthetic" "$PWD/.out/oxce-build/bin/openxcom" \
+            "$PWD/.out/native-footprint" \
+            | tee .out/rdte-evidence/native-footprint-summary.json
+          cp .out/native-footprint/native-ablation-report.json .out/rdte-evidence/native-ablation-report.json
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const r=JSON.parse(fs.readFileSync('.out/rdte-evidence/native-ablation-report.json','utf8'));
+          if(r.schema!=='oxce.synthetic.native-footprint.v1'||r.baselineLoadPass!==true||
+             r.groups<5||r.cases.length!==r.groups||r.nativeMinimumProven!==false||
+             r.gameplayQualified!==false||r.originalCommercialGame!=='NOT_RUN'||
+             r.selectedSignalFrontierGame!=='NOT_RUN') {
+            throw new Error('fail-closed: native startup source-group ablation receipt incomplete');
+          }
+          const counts={};
+          for(const c of r.cases)counts[c.bootClass]=(counts[c.bootClass]||0)+1;
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+            'One verified pinned engine binary, '+r.groups+' independent source-group startup ablations. '+
+            'Boot classifications: '+JSON.stringify(counts)+'. '+
+            'Neither game minimum nor player gameplay qualified.\n');
+          NODE
       - name: Upload exact-run logs for independent review
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0 Node24
